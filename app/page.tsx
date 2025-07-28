@@ -169,7 +169,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-brand-background">
+    <div className="min-h-screen bg-brand-bg-100">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md dark:bg-brand-primary-300/80 dark:border-brand-bg-300">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -366,11 +366,11 @@ export default function LandingPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-brand-primary-100/20 to-brand-primary-200/20 rounded-3xl blur-3xl"></div>
             <div className="relative bg-white/90 dark:bg-brand-primary-300/30 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-brand-bg-300/50">
               <div className="text-center mb-8">
-                <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-brand-accent-100 to-brand-accent-200 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
+                <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-brand-primary-100 to-brand-accent-200 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
                   <span>🌐</span>
                   <span>menudata.com/turestaurante</span>
                 </div>
-                <div className="flex justify-center space-x-6 text-brand-text-100 mt-6">
+                <div className="flex justify-center space-x-6 text-brand-text-100 mt-6 overflow-x-auto">
                   <div className="flex items-center space-x-2 bg-brand-bg-200 px-4 py-2 rounded-full">
                     <span>🍕</span>
                     <span className="font-medium">Entradas</span>
@@ -467,7 +467,7 @@ export default function LandingPage() {
       >
         <div className="container mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
               ✅ ¿Qué incluye el servicio?
             </h2>
           </div>
@@ -475,18 +475,18 @@ export default function LandingPage() {
             {features.map((feature, index) => (
               <Card
                 key={index}
-                className="border-brand-accent hover:shadow-lg transition-shadow bg-white dark:bg-brand-text/10"
+                className="border-brand-accent-100 hover:shadow-lg transition-shadow bg-white dark:bg-brand-text/10"
               >
                 <CardHeader>
-                  <div className="w-12 h-12 bg-brand-primary rounded-lg flex items-center justify-center text-white mb-4">
+                  <div className="w-12 h-12 bg-brand-accent-100 rounded-lg flex items-center justify-center text-white mb-4">
                     {feature.icon}
                   </div>
-                  <CardTitle className="text-brand-text">
+                  <CardTitle className="text-brand-text-100">
                     {feature.title}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-brand-text/70">
+                  <CardDescription className="text-brand-text-100/70">
                     {feature.description}
                   </CardDescription>
                 </CardContent>
@@ -498,10 +498,10 @@ export default function LandingPage() {
             {additionalFeatures.map((feature, index) => (
               <Card
                 key={index}
-                className="border-brand-hover/30 hover:shadow-lg transition-shadow bg-brand-hover/10"
+                className="border-brand-accent-100 hover:shadow-lg transition-shadow bg-brand-hover/10"
               >
                 <CardHeader className="pb-3">
-                  <div className="w-10 h-10 bg-brand-hover rounded-lg flex items-center justify-center text-white mb-3">
+                  <div className="w-10 h-10 bg-brand-primary-300 rounded-lg flex items-center justify-center text-white mb-3">
                     {feature.icon}
                   </div>
                   <CardTitle className="text-sm text-brand-text">
@@ -532,14 +532,14 @@ export default function LandingPage() {
       <section id="how-it-works" className="py-20 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
               🛠️ ¿Cómo funciona?
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {howItWorks.map((step, index) => (
               <div key={index} className="text-center">
-                <div className="w-16 h-16 bg-brand-primary text-white rounded-full flex items-center justify-center text-2xl font-bold mb-4 mx-auto">
+                <div className="w-16 h-16 bg-brand-primary-100 text-white rounded-full flex items-center justify-center text-2xl font-bold mb-4 mx-auto">
                   {step.step}
                 </div>
                 <h3 className="text-xl font-semibold mb-2 text-brand-text">
@@ -556,7 +556,7 @@ export default function LandingPage() {
       <section id="plans" className="py-20 px-4 bg-white dark:bg-brand-text/5">
         <div className="container mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
               💰 PLANES
             </h2>
             <div className="bg-brand-accent/30 p-4 rounded-lg max-w-2xl mx-auto">
@@ -571,7 +571,7 @@ export default function LandingPage() {
             {plans.map((plan, index) => (
               <Card
                 key={index}
-                className={`relative ${
+                className={`relative bg-white ${
                   plan.popular
                     ? "border-brand-hover shadow-xl scale-105"
                     : "border-gray-200 dark:border-gray-700"
@@ -687,13 +687,13 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="py-20 px-4 bg-brand-primary">
         <div className="container mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
             📲 ¿Querés ver cómo se ve?
           </h2>
-          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-brand-text-200 mb-8 max-w-2xl mx-auto">
             Pedinos un ejemplo y te mandamos un demo como si fueras un cliente.
           </p>
-          <p className="text-lg text-white/90 mb-8">
+          <p className="text-lg text-brand-text-200 mb-8">
             🎯{" "}
             <strong>
               Empezá a mejorar la experiencia de tus comensales por muy poco y
@@ -721,7 +721,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-4 bg-brand-text text-white">
+      <footer className="py-12 px-4 bg-brand-text-200 text-white">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>

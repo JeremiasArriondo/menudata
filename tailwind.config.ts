@@ -47,22 +47,22 @@ const config: Config = {
         // Custom brand colors
         brand: {
           primary: {
-            100: "#eb9c64", // Naranja/durazno
-            200: "#ff8789", // Coral/rosa
-            300: "#554e4f", // Gris oscuro
+            100: "#D1495B", // Rojo sandía (apetitoso, vibrante, sin ser agresivo)
+            200: "#F79256", // Naranja dulce (alegre, cálido, buen contraste)
+            300: "#FFD8BE", // Durazno claro (suave y amigable para fondos o hovers)
           },
           accent: {
-            100: "#8fbf9f", // Verde suave
-            200: "#346145", // Verde oscuro
+            100: "#A7C957", // Verde lima pastel (frescura, balancea lo cálido)
+            200: "#FFCB77", // Amarillo suave (ideal para destacar precios o promos)
           },
           text: {
-            100: "#353535", // Gris oscuro
-            200: "#000000", // Negro
+            100: "#2B2B2B", // Casi negro (legibilidad sin ser duro)
+            200: "#5C5C5C", // Gris medio (para textos secundarios)
           },
           bg: {
-            100: "#F5ECD7", // Beige claro
-            200: "#ebe2cd", // Beige medio
-            300: "#c2baa6", // Beige oscuro
+            100: "#FFF8F0", // Fondo cálido claro
+            200: "#FFEEDC", // Fondo crema pastel
+            300: "#F5D9C5", // Fondo tostado suave para contraste
           },
         },
       },
