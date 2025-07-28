@@ -25,6 +25,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -174,8 +175,15 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 w-full border-b border-brand-primary-300 bg-white/80 backdrop-blur-md dark:bg-brand-primary-300/80 dark:border-brand-bg-300">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 flex items-center justify-center">
-              <Menu className="h-5 w-5 text-white" />
+            <div className="h-14 w-14 rounded-full bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 flex items-center justify-center">
+              <Image
+                src={"/logo-1.jpg"}
+                alt="Logo"
+                width={75}
+                height={75}
+                quality={100}
+                className="rounded-full overflow-hidden"
+              />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 bg-clip-text text-transparent">
               MenuData
@@ -639,11 +647,11 @@ export default function LandingPage() {
             </h2>
           </div>
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white dark:bg-brand-text/10 p-8 rounded-2xl shadow-lg">
+            <div className="bg-white dark:bg-brand-text-100 p-8 rounded-2xl shadow-lg">
               <div className="text-center mb-8">
                 <div className="flex justify-center items-center space-x-4 mb-4">
                   <div className="w-16 h-16 bg-brand-primary rounded-full flex items-center justify-center">
-                    <Heart className="h-8 w-8 text-white" />
+                    <Heart className="h-8 w-8 dark:text-white" />
                   </div>
                 </div>
                 <h3 className="text-2xl font-bold text-brand-text mb-4">
@@ -685,7 +693,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 bg-brand-primary">
+      <section className="py-20 px-4 bg-background">
         <div className="container mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
             📲 ¿Querés ver cómo se ve?
@@ -712,7 +720,7 @@ export default function LandingPage() {
               Pedir Demo
             </Button>
           </div>
-          <p className="text-white/80 text-lg">
+          <p className="dark:text-white text-lg">
             Te esperamos,
             <br />
             <strong>Melanie & Jeremías – Menudata</strong>
@@ -721,23 +729,23 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-4 bg-brand-text-200 text-white">
+      <footer className="py-12 px-4 bg-brand-primary-100 text-white dark:text-black">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <div className="h-8 w-8 rounded-lg bg-brand-primary flex items-center justify-center">
-                  <Menu className="h-5 w-5 text-white" />
+                  <Menu className="h-5 w-5 text-white dark:text-black" />
                 </div>
                 <span className="text-xl font-bold">MenuData</span>
               </div>
-              <p className="text-gray-400">
+              <p className="text-gray-200 dark:text-gray-800">
                 Tu carta digital. Siempre actualizada. Siempre impecable.
               </p>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Producto</h4>
-              <ul className="space-y-2 text-gray-400">
+              <ul className="space-y-2 text-gray-200 dark:text-gray-800">
                 <li>
                   <Link href="#features" className="hover:text-brand-primary">
                     Características
@@ -757,7 +765,7 @@ export default function LandingPage() {
             </div>
             <div>
               <h4 className="font-semibold mb-4">Soporte</h4>
-              <ul className="space-y-2 text-gray-400">
+              <ul className="space-y-2 text-gray-200 dark:text-gray-800">
                 <li>
                   <Link href="#" className="hover:text-brand-primary">
                     WhatsApp
@@ -777,7 +785,7 @@ export default function LandingPage() {
             </div>
             <div>
               <h4 className="font-semibold mb-4">Contacto</h4>
-              <ul className="space-y-2 text-gray-400">
+              <ul className="space-y-2 text-gray-200 dark:text-gray-800">
                 <li>📱 WhatsApp: +54 9 11 1234-5678</li>
                 <li>📧 hola@menudata.com</li>
                 <li>🌐 menudata.com</li>
@@ -785,7 +793,7 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-200 dark:text-gray-800">
             <p>&copy; 2024 MenuData. Todos los derechos reservados.</p>
           </div>
         </div>

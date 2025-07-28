@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    --background: #f5c6f0; /* #F5ECD7 - Beige claro */
-    --foreground: 53 53 53; /* #353535 - Gris oscuro */
+    --background: #fff1f7;
+    --foreground: #353535;
     --card: 245 236 215;
     --card-foreground: 53 53 53;
     --popover: 245 236 215;
@@ -32,8 +32,8 @@
   }
 
   .dark {
-    --background: #554e4f; /* #554e4f - Gris oscuro para dark mode */
-    --foreground: 245 236 215;
+    --background: #554e4f;
+    --foreground: #f5ecd7;
     --card: 85 78 79;
     --card-foreground: 245 236 215;
     --popover: 85 78 79;
@@ -48,7 +48,7 @@
     --accent-foreground: 85 78 79;
     --destructive: 255 135 137;
     --destructive-foreground: 245 236 215;
-    --border: 52 97 69; /* #346145 - Verde oscuro */
+    --border: #346145;
     --input: 52 97 69;
     --ring: 235 156 100;
     --chart-1: 220 70% 50%;
@@ -64,7 +64,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
   }
 }
 
