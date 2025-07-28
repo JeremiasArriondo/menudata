@@ -94,8 +94,8 @@ export default function LandingPage() {
       name: "GRATUITO",
       price: "Gratis",
       period: "",
-      color: "bg-brand-accent",
-      textColor: "text-brand-text",
+      color: "bg-brand-accent-100",
+      textColor: "text-brand-text-200",
       description: "Ideal para menús breves o food trucks",
       features: [
         "Hasta 25 platos",
@@ -112,7 +112,7 @@ export default function LandingPage() {
       price: "$19.99",
       period: "/mes",
       color: "bg-[#F4A261]",
-      textColor: "text-brand-text",
+      textColor: "text-brand-text-100",
       description: "Ideal para restaurantes medianos",
       features: [
         "Hasta 50 platos",
@@ -128,8 +128,8 @@ export default function LandingPage() {
       name: "PREMIUM",
       price: "$39.99",
       period: "/mes",
-      color: "bg-brand-secondary",
-      textColor: "text-white",
+      color: "bg-brand-primary-100",
+      textColor: "text-brand-text-100",
       description: "Ideal para restaurantes grandes o con mucha variedad",
       features: [
         "Platos ilimitados",
@@ -169,9 +169,9 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-brand-bg-100">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md dark:bg-brand-primary-300/80 dark:border-brand-bg-300">
+      <header className="sticky top-0 z-50 w-full border-b border-brand-primary-300 bg-white/80 backdrop-blur-md dark:bg-brand-primary-300/80 dark:border-brand-bg-300">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-2">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 flex items-center justify-center">
@@ -329,7 +329,7 @@ export default function LandingPage() {
                   </p>
                 </div>
                 <div className="relative">
-                  <div className="bg-gradient-to-br from-brand-primary-100 to-brand-primary-200 p-6 rounded-2xl shadow-xl">
+                  <div className="bg-gradient-to-br from-brand-accent-100 to-brand-primary-200 p-6 rounded-2xl shadow-xl">
                     <div className="bg-white rounded-xl p-4 mb-4">
                       <QrCode className="h-16 w-16 mx-auto text-brand-primary-300" />
                     </div>
@@ -498,10 +498,10 @@ export default function LandingPage() {
             {additionalFeatures.map((feature, index) => (
               <Card
                 key={index}
-                className="border-brand-accent-100 hover:shadow-lg transition-shadow bg-brand-hover/10"
+                className="border-brand-primary-100 hover:shadow-lg transition-shadow bg-brand-hover/10"
               >
                 <CardHeader className="pb-3">
-                  <div className="w-10 h-10 bg-brand-primary-300 rounded-lg flex items-center justify-center text-white mb-3">
+                  <div className="w-10 h-10 bg-brand-primary-200 rounded-lg flex items-center justify-center text-white mb-3">
                     {feature.icon}
                   </div>
                   <CardTitle className="text-sm text-brand-text">
@@ -529,7 +529,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="py-20 px-4">
+      <section id="how-it-works" className="py-20 px-4 bg-brand-bg-100">
         <div className="container mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
@@ -573,12 +573,12 @@ export default function LandingPage() {
                 key={index}
                 className={`relative bg-white ${
                   plan.popular
-                    ? "border-brand-hover shadow-xl scale-105"
-                    : "border-gray-200 dark:border-gray-700"
+                    ? "border-brand-primary-100 shadow-xl scale-105"
+                    : "border-brand-primary-300 dark:border-gray-700"
                 }`}
               >
                 {plan.popular && (
-                  <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-brand-hover text-white">
+                  <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-brand-primary-100 text-white">
                     Más Popular
                   </Badge>
                 )}
@@ -654,7 +654,7 @@ export default function LandingPage() {
                 <p>
                   Somos <strong>Jeremías Arriondo y Melanie Reynoso</strong>,
                   desarrolladores, con experiencia y recomendaciones, un
-                  matrimonio que vive en Rojas, Buenos Aires.
+                  matrimonio que vive en Argentina.
                 </p>
                 <p>
                   Creamos Menudata con una idea clara:{" "}

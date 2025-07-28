@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 245 236 215; /* #F5ECD7 - Beige claro */
+    --background: #f5c6f0; /* #F5ECD7 - Beige claro */
     --foreground: 53 53 53; /* #353535 - Gris oscuro */
     --card: 245 236 215;
     --card-foreground: 53 53 53;
@@ -32,7 +32,7 @@
   }
 
   .dark {
-    --background: 85 78 79; /* #554e4f - Gris oscuro para dark mode */
+    --background: #554e4f; /* #554e4f - Gris oscuro para dark mode */
     --foreground: 245 236 215;
     --card: 85 78 79;
     --card-foreground: 245 236 215;
