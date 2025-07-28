@@ -10,17 +10,17 @@
     --card-foreground: 53 53 53;
     --popover: 245 236 215;
     --popover-foreground: 53 53 53;
-    --primary: 235 156 100; /* #eb9c64 - Naranja/durazno */
+    --primary: 235 156 100;
     --primary-foreground: 245 236 215;
-    --secondary: 255 135 137; /* #ff8789 - Coral/rosa */
+    --secondary: 255 135 137;
     --secondary-foreground: 53 53 53;
-    --muted: 143 191 159; /* #8fbf9f - Verde suave */
+    --muted: 143 191 159;
     --muted-foreground: 53 53 53;
-    --accent: 143 191 159;
+    --accent: #ffc9de;
     --accent-foreground: 53 53 53;
     --destructive: 255 135 137;
     --destructive-foreground: 245 236 215;
-    --border: 194 186 166; /* #c2baa6 - Beige oscuro */
+    --border: 194 186 166;
     --input: 194 186 166;
     --ring: 235 156 100;
     --radius: 0.75rem;
@@ -44,7 +44,7 @@
     --secondary-foreground: 245 236 215;
     --muted: 143 191 159;
     --muted-foreground: 85 78 79;
-    --accent: 143 191 159;
+    --accent: #ffc9de;
     --accent-foreground: 85 78 79;
     --destructive: 255 135 137;
     --destructive-foreground: 245 236 215;
