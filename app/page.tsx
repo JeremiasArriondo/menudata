@@ -317,17 +317,17 @@ export default function LandingPage() {
             <div className="bg-white/80 dark:bg-brand-primary-300/20 backdrop-blur-sm p-8 rounded-3xl shadow-2xl border border-brand-bg-300/50">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                 <div className="text-left space-y-4">
-                  <p className="text-2xl font-bold text-brand-text-100">
+                  <p className="text-2xl font-bold text-brand-text-100 dark:text-white">
                     <span className="text-4xl">Hola 👋</span>
                   </p>
-                  <p className="text-lg text-brand-text-100 leading-relaxed">
+                  <p className="text-lg text-brand-text-100 dark:text-white leading-relaxed">
                     Sabemos lo importante que es para tu restaurante ofrecer un
                     servicio{" "}
                     <span className="font-semibold text-brand-primary-200">
                       ágil, moderno y claro.
                     </span>
                   </p>
-                  <p className="text-lg text-brand-text-100 leading-relaxed">
+                  <p className="text-lg text-brand-text-100 dark:text-white leading-relaxed">
                     <strong className="text-brand-primary-100">Menudata</strong>{" "}
                     es una plataforma digital donde podés publicar tu menú
                     online y permitir que tus clientes lo vean desde su celular,{" "}
@@ -400,12 +400,12 @@ export default function LandingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="bg-gradient-to-br from-brand-primary-100/20 to-brand-primary-200/20 p-6 rounded-2xl border border-brand-primary-100/30 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-brand-text-200 text-lg">
+                    <h4 className="font-bold text-brand-text-200 dark:text-white text-lg">
                       Pizza Margherita
                     </h4>
                     <Star className="h-5 w-5 text-brand-primary-200 fill-current" />
                   </div>
-                  <p className="text-brand-text-100 mb-3">
+                  <p className="text-brand-text-100 dark:text-white mb-3">
                     Tomate, mozzarella, albahaca fresca
                   </p>
                   <div className="flex items-center justify-between">
@@ -419,12 +419,12 @@ export default function LandingPage() {
                 </div>
                 <div className="bg-gradient-to-br from-brand-accent-100/20 to-brand-accent-200/20 p-6 rounded-2xl border border-brand-accent-100/30 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-brand-text-200 text-lg">
+                    <h4 className="font-bold text-brand-text-200 dark:text-white text-lg">
                       Milanesa Napolitana
                     </h4>
                     <Heart className="h-5 w-5 text-brand-primary-200" />
                   </div>
-                  <p className="text-brand-text-100 mb-3">
+                  <p className="text-brand-text-100 dark:text-white mb-3">
                     Con papas fritas caseras
                   </p>
                   <div className="flex items-center justify-between">
@@ -438,12 +438,12 @@ export default function LandingPage() {
                 </div>
                 <div className="bg-gradient-to-br from-brand-primary-200/20 to-brand-primary-100/20 p-6 rounded-2xl border border-brand-primary-200/30 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-brand-text-200 text-lg">
+                    <h4 className="font-bold text-brand-text-200 dark:text-white text-lg">
                       Tiramisu Casero
                     </h4>
                     <Zap className="h-5 w-5 text-brand-primary-100" />
                   </div>
-                  <p className="text-brand-text-100 mb-3">
+                  <p className="text-brand-text-100 dark:text-white mb-3">
                     Receta tradicional italiana
                   </p>
                   <div className="flex items-center justify-between">
@@ -469,13 +469,10 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section
-        id="features"
-        className="py-20 px-4 bg-white dark:bg-brand-text/5"
-      >
+      <section id="features" className="py-20 px-4 bg-white dark:bg-black">
         <div className="container mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100 dark:text-white">
               ✅ ¿Qué incluye el servicio?
             </h2>
           </div>
@@ -483,10 +480,10 @@ export default function LandingPage() {
             {features.map((feature, index) => (
               <Card
                 key={index}
-                className="border-brand-accent-100 hover:shadow-lg transition-shadow bg-white dark:bg-brand-text/10"
+                className="border-brand-accent-100 dark:border-brand-primary-100 hover:shadow-lg transition-shadow bg-white dark:bg-brand-primary-300"
               >
                 <CardHeader>
-                  <div className="w-12 h-12 bg-brand-accent-100 rounded-lg flex items-center justify-center text-white mb-4">
+                  <div className="w-12 h-12 bg-brand-accent-100 dark:bg-brand-primary-100 rounded-lg flex items-center justify-center text-white mb-4">
                     {feature.icon}
                   </div>
                   <CardTitle className="text-brand-text-100">
@@ -550,10 +547,10 @@ export default function LandingPage() {
                 <div className="w-16 h-16 bg-brand-primary-100 text-white rounded-full flex items-center justify-center text-2xl font-bold mb-4 mx-auto">
                   {step.step}
                 </div>
-                <h3 className="text-xl font-semibold mb-2 text-brand-text">
+                <h3 className="text-xl font-semibold mb-2 text-brand-text-100">
                   {step.title}
                 </h3>
-                <p className="text-brand-text/70">{step.description}</p>
+                <p className="text-brand-text-200">{step.description}</p>
               </div>
             ))}
           </div>
