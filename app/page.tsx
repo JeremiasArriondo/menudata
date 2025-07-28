@@ -558,10 +558,20 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section id="plans" className="py-20 px-4 bg-white dark:bg-brand-text/5">
-        <div className="container mx-auto">
+      <section
+        id="plans"
+        className="py-20 px-4 bg-background relative py-20 px-4 overflow-hidden"
+      >
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-20 left-10 w-32 h-32 bg-brand-primary-100/20 rounded-full blur-xl animate-float"></div>
+          <div className="absolute top-40 right-20 w-24 h-24 bg-brand-primary-200/30 rounded-full blur-lg animate-float-delayed"></div>
+          <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-brand-accent-100/20 rounded-full blur-2xl animate-float-delayed-2"></div>
+          <div className="absolute top-1/2 right-10 w-20 h-20 bg-brand-primary-200/25 rounded-full blur-md animate-bounce-slow"></div>
+        </div>
+
+        <div className="container mx-auto relative z-10">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100 dark:text-white">
               💰 PLANES
             </h2>
             <div className="bg-brand-accent/30 p-4 rounded-lg max-w-2xl mx-auto">
@@ -594,14 +604,14 @@ export default function LandingPage() {
                     {plan.name}
                   </div>
                   <div className="flex items-baseline justify-center">
-                    <span className="text-4xl font-bold text-brand-primary">
+                    <span className="text-4xl font-bold text-brand-primary-200">
                       {plan.price}
                     </span>
-                    <span className="text-brand-text/70 ml-1">
+                    <span className="text-brand-text/70 dark:text-brand-primary-200 ml-1">
                       {plan.period}
                     </span>
                   </div>
-                  <CardDescription className="text-brand-text/70">
+                  <CardDescription className="text-brand-text/70 dark:text-brand-primary-100">
                     {plan.description}
                   </CardDescription>
                 </CardHeader>
@@ -612,8 +622,8 @@ export default function LandingPage() {
                         key={featureIndex}
                         className="flex items-start space-x-3"
                       >
-                        <Check className="h-5 w-5 text-brand-accent mt-0.5 flex-shrink-0" />
-                        <span className="text-brand-text/80 text-sm">
+                        <Check className="h-5 w-5 text-brand-accent dark:text-brand-primary-300 mt-0.5 flex-shrink-0" />
+                        <span className="text-brand-text/80 dark:text-brand-primary-200 text-sm">
                           {feature}
                         </span>
                       </li>
@@ -622,8 +632,8 @@ export default function LandingPage() {
                   <Button
                     className={`w-full ${
                       plan.popular
-                        ? "bg-brand-primary hover:bg-brand-hover text-white"
-                        : "bg-brand-text hover:bg-brand-text/80 text-white dark:bg-gray-600 dark:hover:bg-gray-500"
+                        ? "bg-brand-primary-100 hover:bg-brand-hover text-white"
+                        : "bg-brand-text-100 hover:bg-brand-text/80 text-white dark:bg-gray-600 dark:hover:bg-gray-500"
                     }`}
                   >
                     Comenzar con {plan.name}
@@ -651,11 +661,11 @@ export default function LandingPage() {
                     <Heart className="h-8 w-8 dark:text-white" />
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold text-brand-text mb-4">
+                <h3 className="text-2xl font-bold text-brand-text dark:text-brand-primary-300 mb-4">
                   Melanie & Jeremías
                 </h3>
               </div>
-              <div className="space-y-4 text-brand-text">
+              <div className="space-y-4 text-brand-text dark:text-brand-primary-300">
                 <p>
                   Somos <strong>Jeremías Arriondo y Melanie Reynoso</strong>,
                   desarrolladores, con experiencia y recomendaciones, un
@@ -692,13 +702,13 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="py-20 px-4 bg-background">
         <div className="container mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100 dark:text-black">
             📲 ¿Querés ver cómo se ve?
           </h2>
-          <p className="text-xl text-brand-text-200 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-brand-text-200 dark:text-brand-primary-300 mb-8 max-w-2xl mx-auto">
             Pedinos un ejemplo y te mandamos un demo como si fueras un cliente.
           </p>
-          <p className="text-lg text-brand-text-200 mb-8">
+          <p className="text-lg text-brand-text-200 dark:text-brand-primary-300 mb-8">
             🎯{" "}
             <strong>
               Empezá a mejorar la experiencia de tus comensales por muy poco y
