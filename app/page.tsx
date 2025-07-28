@@ -560,7 +560,7 @@ export default function LandingPage() {
       {/* Pricing Section */}
       <section
         id="plans"
-        className="py-20 px-4 bg-background relative py-20 px-4 overflow-hidden"
+        className="py-20 px-4 bg-background relative overflow-hidden"
       >
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-20 left-10 w-32 h-32 bg-brand-primary-100/20 rounded-full blur-xl animate-float"></div>
@@ -700,8 +700,14 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 bg-background">
-        <div className="container mx-auto text-center">
+      <section className="py-20 px-4 bg-background relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-20 left-10 w-32 h-32 bg-brand-primary-100/20 rounded-full blur-xl animate-float"></div>
+          <div className="absolute top-40 right-20 w-24 h-24 bg-brand-primary-200/30 rounded-full blur-lg animate-float-delayed"></div>
+          <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-brand-accent-100/20 rounded-full blur-2xl animate-float-delayed-2"></div>
+          <div className="absolute top-1/2 right-10 w-20 h-20 bg-brand-primary-200/25 rounded-full blur-md animate-bounce-slow"></div>
+        </div>
+        <div className="container mx-auto text-center relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-text-100 dark:text-black">
             📲 ¿Querés ver cómo se ve?
           </h2>

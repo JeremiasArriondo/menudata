@@ -32,7 +32,7 @@
   }
 
   .dark {
-    --background: #554e4f;
+    --background: #000000;
     --foreground: #f5ecd7;
     --card: 85 78 79;
     --card-foreground: 245 236 215;
