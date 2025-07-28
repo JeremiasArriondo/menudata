@@ -47,22 +47,22 @@ const config: Config = {
         // Custom brand colors
         brand: {
           primary: {
-            100: "#D1495B", // Rojo sandía (apetitoso, vibrante, sin ser agresivo)
-            200: "#F79256", // Naranja dulce (alegre, cálido, buen contraste)
-            300: "#FFD8BE", // Durazno claro (suave y amigable para fondos o hovers)
+            100: "#F84E93", // Rosa fuerte (protagonista, energético y atractivo)
+            200: "#F179B6", // Magenta suave (ideal para botones o estados hover)
+            300: "#FFC9DE", // Rosa claro (sutil, perfecto para fondos o resaltados suaves)
           },
           accent: {
-            100: "#A7C957", // Verde lima pastel (frescura, balancea lo cálido)
-            200: "#FFCB77", // Amarillo suave (ideal para destacar precios o promos)
+            100: "#FEDA00", // Amarillo vibrante (llama la atención para promociones o íconos)
+            200: "#FF7E6D", // Naranja coral (energía y calidez sin saturar)
           },
           text: {
-            100: "#2B2B2B", // Casi negro (legibilidad sin ser duro)
-            200: "#5C5C5C", // Gris medio (para textos secundarios)
+            100: "#2E2E2E", // Casi negro (legible, elegante)
+            200: "#6A6A6A", // Gris medio (para texto secundario o descripciones)
           },
           bg: {
-            100: "#FFF8F0", // Fondo cálido claro
-            200: "#FFEEDC", // Fondo crema pastel
-            300: "#F5D9C5", // Fondo tostado suave para contraste
+            100: "#FFF1F7", // Rosa pastel muy claro (ideal como fondo general)
+            200: "#FFEAE3", // Tono durazno claro (para secciones)
+            300: "#F5C6F0", // Rosa suave (para destacar bloques o secciones especiales)
           },
         },
       },
