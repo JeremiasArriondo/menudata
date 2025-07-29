@@ -26,9 +26,11 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
+  Check,
   Edit,
   Eye,
   GripVertical,
+  Palette,
   Plus,
   QrCode,
   Save,
@@ -56,14 +58,169 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
+interface MenuTheme {
+  id: string;
+  name: string;
+  description: string;
+  preview: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    card: string;
+    text: string;
+    textSecondary: string;
+  };
+  style: {
+    borderRadius: string;
+    fontFamily: string;
+    cardStyle: string;
+    headerStyle: string;
+  };
+}
+
+const menuThemes: MenuTheme[] = [
+  {
+    id: "clasico",
+    name: "Clásico",
+    description: "Diseño tradicional y elegante",
+    preview: "🏛️",
+    colors: {
+      primary: "#F84E93",
+      secondary: "#F179B6",
+      accent: "#FEDA00",
+      background: "#FFF1F7",
+      card: "#FFFFFF",
+      text: "#2E2E2E",
+      textSecondary: "#6A6A6A",
+    },
+    style: {
+      borderRadius: "rounded-xl",
+      fontFamily: "font-serif",
+      cardStyle: "shadow-md border",
+      headerStyle: "text-center",
+    },
+  },
+  {
+    id: "moderno",
+    name: "Moderno",
+    description: "Minimalista y contemporáneo",
+    preview: "✨",
+    colors: {
+      primary: "#000000",
+      secondary: "#333333",
+      accent: "#FF6B6B",
+      background: "#FFFFFF",
+      card: "#F8F9FA",
+      text: "#000000",
+      textSecondary: "#666666",
+    },
+    style: {
+      borderRadius: "rounded-none",
+      fontFamily: "font-sans",
+      cardStyle: "border-l-4 border-l-black",
+      headerStyle: "text-left",
+    },
+  },
+  {
+    id: "elegante",
+    name: "Elegante",
+    description: "Sofisticado y premium",
+    preview: "💎",
+    colors: {
+      primary: "#1A1A1A",
+      secondary: "#8B7355",
+      accent: "#D4AF37",
+      background: "#F5F5F0",
+      card: "#FFFFFF",
+      text: "#1A1A1A",
+      textSecondary: "#8B7355",
+    },
+    style: {
+      borderRadius: "rounded-lg",
+      fontFamily: "font-serif",
+      cardStyle: "shadow-lg border-2 border-gray-100",
+      headerStyle: "text-center border-b-2 border-gray-200 pb-2",
+    },
+  },
+  {
+    id: "colorido",
+    name: "Colorido",
+    description: "Vibrante y divertido",
+    preview: "🌈",
+    colors: {
+      primary: "#FF6B6B",
+      secondary: "#4ECDC4",
+      accent: "#45B7D1",
+      background: "#FFF8E1",
+      card: "#FFFFFF",
+      text: "#2C3E50",
+      textSecondary: "#7F8C8D",
+    },
+    style: {
+      borderRadius: "rounded-2xl",
+      fontFamily: "font-sans",
+      cardStyle:
+        "shadow-xl border-2 border-transparent bg-gradient-to-br from-white to-gray-50",
+      headerStyle:
+        "text-center bg-gradient-to-r from-pink-500 to-blue-500 text-white rounded-t-2xl p-4 -m-6 mb-4",
+    },
+  },
+  {
+    id: "rustico",
+    name: "Rústico",
+    description: "Cálido y tradicional",
+    preview: "🏕️",
+    colors: {
+      primary: "#8B4513",
+      secondary: "#D2691E",
+      accent: "#CD853F",
+      background: "#FDF5E6",
+      card: "#FFFAF0",
+      text: "#654321",
+      textSecondary: "#8B7355",
+    },
+    style: {
+      borderRadius: "rounded-lg",
+      fontFamily: "font-serif",
+      cardStyle:
+        "shadow-md border-2 border-amber-200 bg-gradient-to-b from-amber-50 to-orange-50",
+      headerStyle: "text-center border-b-2 border-amber-300 pb-2",
+    },
+  },
+  {
+    id: "premium",
+    name: "Premium",
+    description: "Lujo y exclusividad",
+    preview: "👑",
+    colors: {
+      primary: "#000000",
+      secondary: "#FFD700",
+      accent: "#C0C0C0",
+      background: "#0A0A0A",
+      card: "#1A1A1A",
+      text: "#FFFFFF",
+      textSecondary: "#CCCCCC",
+    },
+    style: {
+      borderRadius: "rounded-xl",
+      fontFamily: "font-serif",
+      cardStyle:
+        "shadow-2xl border border-gray-800 bg-gradient-to-b from-gray-900 to-black",
+      headerStyle: "text-center border-b border-gray-700 pb-4",
+    },
+  },
+];
+
 export default function CrearMenuPage() {
   const [restaurantName, setRestaurantName] = useState("");
   const [currentStep, setCurrentStep] = useState(1);
+  const [selectedTheme, setSelectedTheme] = useState<MenuTheme>(menuThemes[0]);
   const [showPreview, setShowPreview] = useState(false);
   const [draggedItem, setDraggedItem] = useState<MenuItem | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("");
 
   const [categories, setCategories] = useState<MenuCategory[]>([
     { id: "entradas", name: "Entradas", icon: "🍕", items: [] },
@@ -256,11 +413,134 @@ export default function CrearMenuPage() {
     },
     {
       number: 3,
+      title: "Elegir Tema",
+      description: "Selecciona el estilo visual",
+    },
+    {
+      number: 4,
       title: "Personalización",
       description: "Ajusta el diseño y configuración",
     },
-    { number: 4, title: "Publicar", description: "Tu menú estará listo" },
+    { number: 5, title: "Publicar", description: "Tu menú estará listo" },
   ];
+
+  const renderMenuPreview = (theme: MenuTheme, isFullPreview = false) => {
+    const sampleCategories = categories
+      .filter((cat) => cat.items.length > 0)
+      .slice(0, isFullPreview ? 4 : 2);
+
+    return (
+      <div
+        className={`${theme.style.fontFamily} p-4 ${theme.style.borderRadius} transition-all duration-300`}
+        style={{
+          backgroundColor: theme.colors.background,
+          color: theme.colors.text,
+          minHeight: isFullPreview ? "auto" : "300px",
+        }}
+      >
+        <div className={`${theme.style.headerStyle} mb-6`}>
+          <h2
+            className={`text-xl font-bold ${
+              theme.id === "colorido" ? "text-white" : ""
+            }`}
+            style={{
+              color: theme.id === "colorido" ? "white" : theme.colors.text,
+            }}
+          >
+            {restaurantName || "Tu Restaurante"}
+          </h2>
+          <p
+            className={`text-sm mt-1 ${
+              theme.id === "colorido" ? "text-white/90" : ""
+            }`}
+            style={{
+              color:
+                theme.id === "colorido"
+                  ? "rgba(255,255,255,0.9)"
+                  : theme.colors.textSecondary,
+            }}
+          >
+            menudata.com/{restaurantName.toLowerCase().replace(/\s+/g, "-")}
+          </p>
+        </div>
+
+        {sampleCategories.map((category) => (
+          <div key={category.id} className="mb-6">
+            <h3
+              className="text-lg font-bold mb-3 flex items-center"
+              style={{ color: theme.colors.primary }}
+            >
+              <span className="mr-2">{category.icon}</span>
+              {category.name}
+            </h3>
+            <div className="space-y-3">
+              {category.items
+                .slice(0, isFullPreview ? category.items.length : 2)
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className={`p-3 ${theme.style.cardStyle} ${theme.style.borderRadius} transition-all duration-200 hover:shadow-lg`}
+                    style={{ backgroundColor: theme.colors.card }}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h4
+                        className="font-medium"
+                        style={{ color: theme.colors.text }}
+                      >
+                        {item.name}
+                      </h4>
+                      {item.featured && (
+                        <Star
+                          className="h-4 w-4 fill-current"
+                          style={{ color: theme.colors.accent }}
+                        />
+                      )}
+                    </div>
+                    <p
+                      className="text-sm mb-2"
+                      style={{ color: theme.colors.textSecondary }}
+                    >
+                      {item.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <p
+                        className="font-bold text-lg"
+                        style={{ color: theme.colors.primary }}
+                      >
+                        ${item.price}
+                      </p>
+                      {item.featured && (
+                        <Badge
+                          className="text-xs"
+                          style={{
+                            backgroundColor: theme.colors.accent,
+                            color:
+                              theme.id === "premium"
+                                ? theme.colors.text
+                                : "#000000",
+                          }}
+                        >
+                          Destacado
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ))}
+
+        {sampleCategories.length === 0 && (
+          <div
+            className="text-center py-8"
+            style={{ color: theme.colors.textSecondary }}
+          >
+            <p>Agrega platos para ver la vista previa</p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-brand-bg-100">
@@ -307,7 +587,7 @@ export default function CrearMenuPage() {
       {/* Progress Steps */}
       <section className="bg-white dark:bg-brand-text-100/10 border-b border-brand-bg-300">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between max-w-4xl mx-auto">
+          <div className="flex items-center justify-between max-w-5xl mx-auto">
             {steps.map((step, index) => (
               <div key={step.number} className="flex items-center">
                 <div className="flex flex-col items-center">
@@ -331,7 +611,7 @@ export default function CrearMenuPage() {
                 </div>
                 {index < steps.length - 1 && (
                   <div
-                    className={`w-24 h-0.5 mx-4 ${
+                    className={`w-20 h-0.5 mx-4 ${
                       currentStep > step.number
                         ? "bg-brand-primary-100"
                         : "bg-brand-bg-300"
@@ -574,6 +854,186 @@ export default function CrearMenuPage() {
         )}
 
         {currentStep === 3 && (
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-brand-text-200 mb-2 flex items-center justify-center">
+                <Palette className="h-8 w-8 mr-3 text-brand-primary-100" />
+                Elige el Tema de tu Menú
+              </h2>
+              <p className="text-brand-text-100">
+                Selecciona el estilo visual que mejor represente tu restaurante
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {menuThemes.map((theme) => (
+                <Card
+                  key={theme.id}
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                    selectedTheme.id === theme.id
+                      ? "ring-2 ring-brand-primary-100 shadow-xl scale-105"
+                      : "hover:scale-102"
+                  }`}
+                  onClick={() => setSelectedTheme(theme)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-2xl">{theme.preview}</span>
+                        <div>
+                          <CardTitle className="text-lg text-brand-text-200">
+                            {theme.name}
+                          </CardTitle>
+                          <p className="text-sm text-brand-text-100">
+                            {theme.description}
+                          </p>
+                        </div>
+                      </div>
+                      {selectedTheme.id === theme.id && (
+                        <div className="w-6 h-6 bg-brand-primary-100 rounded-full flex items-center justify-center">
+                          <Check className="h-4 w-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-lg overflow-hidden">
+                      {renderMenuPreview(theme)}
+                    </div>
+                    <div className="mt-3 flex items-center space-x-2">
+                      <div
+                        className="w-4 h-4 rounded-full border"
+                        style={{ backgroundColor: theme.colors.primary }}
+                      ></div>
+                      <div
+                        className="w-4 h-4 rounded-full border"
+                        style={{ backgroundColor: theme.colors.secondary }}
+                      ></div>
+                      <div
+                        className="w-4 h-4 rounded-full border"
+                        style={{ backgroundColor: theme.colors.accent }}
+                      ></div>
+                      <span className="text-xs text-brand-text-100 ml-2">
+                        Paleta de colores
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="flex justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(2)}
+                className="border-brand-text-100 text-brand-text-100"
+              >
+                Anterior
+              </Button>
+              <Button
+                onClick={() => setCurrentStep(4)}
+                className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 hover:from-brand-primary-200 hover:to-brand-primary-100 text-white"
+              >
+                Continuar con {selectedTheme.name}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 4 && (
+          <div className="max-w-4xl mx-auto">
+            <Card className="bg-white dark:bg-brand-text-100/10 border-brand-bg-300">
+              <CardHeader>
+                <CardTitle className="text-2xl text-brand-text-200">
+                  Personalización Final
+                </CardTitle>
+                <p className="text-brand-text-100">
+                  Revisa y ajusta los detalles finales de tu menú
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-brand-text-200 mb-4">
+                      Configuración
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-brand-text-200">
+                          Tema seleccionado
+                        </Label>
+                        <div className="flex items-center space-x-3 mt-2 p-3 bg-brand-bg-100 rounded-lg">
+                          <span className="text-xl">
+                            {selectedTheme.preview}
+                          </span>
+                          <div>
+                            <p className="font-medium text-brand-text-200">
+                              {selectedTheme.name}
+                            </p>
+                            <p className="text-sm text-brand-text-100">
+                              {selectedTheme.description}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-brand-text-200">
+                          Estadísticas del menú
+                        </Label>
+                        <div className="grid grid-cols-2 gap-4 mt-2">
+                          <div className="bg-brand-bg-100 p-3 rounded-lg text-center">
+                            <p className="text-2xl font-bold text-brand-primary-100">
+                              {totalItems}
+                            </p>
+                            <p className="text-sm text-brand-text-100">
+                              Platos totales
+                            </p>
+                          </div>
+                          <div className="bg-brand-bg-100 p-3 rounded-lg text-center">
+                            <p className="text-2xl font-bold text-brand-accent-200">
+                              {
+                                categories.filter((cat) => cat.items.length > 0)
+                                  .length
+                              }
+                            </p>
+                            <p className="text-sm text-brand-text-100">
+                              Categorías
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-brand-text-200 mb-4">
+                      Vista Previa Final
+                    </h3>
+                    <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+                      {renderMenuPreview(selectedTheme, true)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep(3)}
+                    className="border-brand-text-100 text-brand-text-100"
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentStep(5)}
+                    className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 hover:from-brand-primary-200 hover:to-brand-primary-100 text-white"
+                  >
+                    Continuar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {currentStep === 5 && (
           <div className="max-w-4xl mx-auto">
             <Card className="bg-white dark:bg-brand-text-100/10 border-brand-bg-300">
               <CardHeader>
@@ -625,6 +1085,57 @@ export default function CrearMenuPage() {
                     </div>
                   </div>
                 </div>
+
+                <div className="bg-gradient-to-r from-brand-accent-100/20 to-brand-accent-200/20 p-6 rounded-xl border border-brand-accent-100/30">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <span className="text-2xl">{selectedTheme.preview}</span>
+                    <div>
+                      <h3 className="font-bold text-brand-text-200">
+                        Tema: {selectedTheme.name}
+                      </h3>
+                      <p className="text-sm text-brand-text-100">
+                        {selectedTheme.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div>
+                      <p className="text-2xl font-bold text-brand-primary-100">
+                        {totalItems}
+                      </p>
+                      <p className="text-xs text-brand-text-100">Platos</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-brand-accent-200">
+                        {
+                          categories.filter((cat) => cat.items.length > 0)
+                            .length
+                        }
+                      </p>
+                      <p className="text-xs text-brand-text-100">Categorías</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-brand-primary-200">
+                        {categories.reduce(
+                          (acc, cat) =>
+                            acc +
+                            cat.items.filter((item) => item.featured).length,
+                          0
+                        )}
+                      </p>
+                      <p className="text-xs text-brand-text-100">Destacados</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-brand-accent-100">
+                        24h
+                      </p>
+                      <p className="text-xs text-brand-text-100">
+                        Para publicar
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-gradient-to-r from-brand-accent-100/20 to-brand-accent-200/20 p-6 rounded-xl border border-brand-accent-100/30">
                   <h3 className="font-bold text-brand-text-200 mb-2">
                     ¿Qué sigue?
@@ -863,54 +1374,14 @@ export default function CrearMenuPage() {
           <DialogHeader>
             <DialogTitle className="text-brand-text-200 flex items-center">
               <Smartphone className="h-5 w-5 mr-2" />
-              Vista Previa del Menú
+              Vista Previa del Menú - {selectedTheme.name}
             </DialogTitle>
             <DialogDescription className="text-brand-text-100">
               Así verán tu menú los clientes en sus celulares
             </DialogDescription>
           </DialogHeader>
-          <div className="bg-brand-bg-100 p-4 rounded-lg">
-            <div className="text-center mb-6">
-              <h2 className="text-xl font-bold text-brand-text-200">
-                {restaurantName || "Tu Restaurante"}
-              </h2>
-              <p className="text-sm text-brand-text-100 mt-1">
-                menudata.com/{restaurantName.toLowerCase().replace(/\s+/g, "-")}
-              </p>
-            </div>
-            {categories
-              .filter((category) => category.items.length > 0)
-              .map((category) => (
-                <div key={category.id} className="mb-6">
-                  <h3 className="text-lg font-bold text-brand-text-200 mb-3 flex items-center">
-                    <span className="mr-2">{category.icon}</span>
-                    {category.name}
-                  </h3>
-                  <div className="space-y-3">
-                    {category.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-white border-brand-bg-300 p-3 rounded-lg border"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium text-brand-text-200">
-                            {item.name}
-                          </h4>
-                          {item.featured && (
-                            <Star className="h-4 w-4 text-brand-primary-200 fill-current" />
-                          )}
-                        </div>
-                        <p className="text-sm text-brand-text-100 mb-2">
-                          {item.description}
-                        </p>
-                        <p className="font-bold text-brand-primary-100">
-                          ${item.price}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+          <div className="border rounded-lg overflow-hidden">
+            {renderMenuPreview(selectedTheme, true)}
           </div>
         </DialogContent>
       </Dialog>
