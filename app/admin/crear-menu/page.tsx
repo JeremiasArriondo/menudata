@@ -543,7 +543,7 @@ export default function CrearMenuPage() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg-100">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-white dark:bg-brand-text-100 shadow-sm border-b border-brand-bg-300">
         <div className="container mx-auto px-4 py-4">
@@ -869,7 +869,7 @@ export default function CrearMenuPage() {
               {menuThemes.map((theme) => (
                 <Card
                   key={theme.id}
-                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                  className={`cursor-pointer transition-all bg-white duration-300 hover:shadow-xl ${
                     selectedTheme.id === theme.id
                       ? "ring-2 ring-brand-primary-100 shadow-xl scale-105"
                       : "hover:scale-102"
@@ -1370,7 +1370,7 @@ export default function CrearMenuPage() {
 
       {/* Preview Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="text-brand-text-200 flex items-center">
               <Smartphone className="h-5 w-5 mr-2" />
