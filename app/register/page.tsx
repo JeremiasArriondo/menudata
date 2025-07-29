@@ -1,19 +1,34 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, User, Phone, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useAuth } from "@/components/auth-provider"
+import { useAuth } from "@/components/auth-provider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Phone,
+  User,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -22,22 +37,22 @@ export default function RegisterPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [acceptTerms, setAcceptTerms] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-  const router = useRouter()
-  const { signInWithGoogle, signUpWithEmail, isConfigured } = useAuth()
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const router = useRouter();
+  const { signInWithGoogle, signUpWithEmail, isConfigured } = useAuth();
 
   // Redirect to home if Supabase is not configured
   useEffect(() => {
     if (!isConfigured) {
-      router.push("/")
+      router.push("/");
     }
-  }, [isConfigured, router])
+  }, [isConfigured, router]);
 
   if (!isConfigured) {
     return (
@@ -45,9 +60,12 @@ export default function RegisterPage() {
         <Card className="max-w-md w-full">
           <CardContent className="text-center p-8">
             <AlertCircle className="h-16 w-16 text-brand-accent-100 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-brand-text-200 mb-2">Modo Demo</h2>
+            <h2 className="text-2xl font-bold text-brand-text-200 mb-2">
+              Modo Demo
+            </h2>
             <p className="text-brand-text-100 mb-4">
-              La autenticación no está configurada. Esta es una versión de demostración.
+              La autenticación no está configurada. Esta es una versión de
+              demostración.
             </p>
             <Link href="/">
               <Button className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 text-white">
@@ -58,67 +76,73 @@ export default function RegisterPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   // Rest of the component logic remains the same...
   const handleGoogleSignUp = async () => {
     try {
-      setIsLoading(true)
-      setError("")
-      await signInWithGoogle()
+      setIsLoading(true);
+      setError("");
+      await signInWithGoogle();
     } catch (error: any) {
-      setError("Error al registrarse con Google")
-      console.error("Google sign up error:", error)
+      setError("Error al registrarse con Google");
+      console.error("Google sign up error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Las contraseñas no coinciden")
-      return
+      setError("Las contraseñas no coinciden");
+      return;
     }
 
     if (formData.password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres")
-      return
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
     }
 
     if (!acceptTerms) {
-      setError("Debes aceptar los términos y condiciones")
-      return
+      setError("Debes aceptar los términos y condiciones");
+      return;
     }
 
     try {
-      setIsLoading(true)
-      setError("")
+      setIsLoading(true);
+      setError("");
 
-      const { error: signUpError } = await signUpWithEmail(formData.email, formData.password, formData.name)
+      const { error: signUpError } = await signUpWithEmail(
+        formData.email,
+        formData.password,
+        formData.name
+      );
 
       if (signUpError) {
-        setError(signUpError)
+        setError(signUpError);
       } else {
-        setSuccess("¡Cuenta creada exitosamente! Revisa tu email para confirmar tu cuenta.")
+        setSuccess(
+          "¡Cuenta creada exitosamente! Revisa tu email para confirmar tu cuenta."
+        );
         // Opcional: redirigir después de un tiempo
         setTimeout(() => {
-          router.push("/login")
-        }, 3000)
+          router.push("/login");
+        }, 3000);
       }
     } catch (error: any) {
-      setError("Error al crear la cuenta")
-      console.error("Email sign up error:", error)
+      setError("Error al crear la cuenta");
+      console.error("Email sign up error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <div className="min-h-screen bg-brand-bg-100 flex items-center justify-center p-4">
@@ -149,13 +173,19 @@ export default function RegisterPage() {
             </span>
           </div>
 
-          <h1 className="text-3xl font-bold text-brand-text-200 mb-2">¡Únete a MenuData!</h1>
-          <p className="text-brand-text-100">Crea tu cuenta y moderniza tu restaurante</p>
+          <h1 className="text-3xl font-bold text-brand-text-200 mb-2">
+            ¡Únete a MenuData!
+          </h1>
+          <p className="text-brand-text-100">
+            Crea tu cuenta y moderniza tu restaurante
+          </p>
         </div>
 
         <Card className="bg-white/80 backdrop-blur-sm border-brand-bg-300 shadow-2xl">
           <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl text-center text-brand-text-200">Crear Cuenta</CardTitle>
+            <CardTitle className="text-2xl text-center text-brand-text-200">
+              Crear Cuenta
+            </CardTitle>
             <CardDescription className="text-center text-brand-text-100">
               Tu menú digital estará listo en 24 horas
             </CardDescription>
@@ -164,13 +194,17 @@ export default function RegisterPage() {
           <CardContent className="space-y-6">
             {error && (
               <Alert className="border-brand-primary-200 bg-brand-primary-200/10">
-                <AlertDescription className="text-brand-primary-200">{error}</AlertDescription>
+                <AlertDescription className="text-brand-primary-200">
+                  {error}
+                </AlertDescription>
               </Alert>
             )}
 
             {success && (
               <Alert className="border-green-500 bg-green-50">
-                <AlertDescription className="text-green-700">{success}</AlertDescription>
+                <AlertDescription className="text-green-700">
+                  {success}
+                </AlertDescription>
               </Alert>
             )}
 
@@ -207,7 +241,9 @@ export default function RegisterPage() {
                 <Separator className="w-full" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-brand-text-100">O completa el formulario</span>
+                <span className="bg-white px-2 text-brand-text-100">
+                  O completa el formulario
+                </span>
               </div>
             </div>
 
@@ -277,7 +313,9 @@ export default function RegisterPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("password", e.target.value)
+                    }
                     className="pl-10 pr-10"
                     required
                   />
@@ -298,7 +336,10 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-brand-text-200">
+                <Label
+                  htmlFor="confirmPassword"
+                  className="text-brand-text-200"
+                >
                   Confirmar contraseña
                 </Label>
                 <div className="relative">
@@ -308,7 +349,9 @@ export default function RegisterPage() {
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.confirmPassword}
-                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("confirmPassword", e.target.value)
+                    }
                     className="pl-10 pr-10"
                     required
                   />
@@ -329,14 +372,24 @@ export default function RegisterPage() {
               </div>
 
               <div className="flex items-center space-x-2">
-                <Checkbox id="terms" checked={acceptTerms} onCheckedChange={setAcceptTerms} />
+                <Checkbox
+                  id="terms"
+                  checked={acceptTerms}
+                  onCheckedChange={setAcceptTerms}
+                />
                 <Label htmlFor="terms" className="text-sm text-brand-text-100">
                   Acepto los{" "}
-                  <Link href="/terms" className="text-brand-primary-100 hover:underline">
+                  <Link
+                    href="/terms"
+                    className="text-brand-primary-100 hover:underline"
+                  >
                     términos y condiciones
                   </Link>{" "}
                   y la{" "}
-                  <Link href="/privacy" className="text-brand-primary-100 hover:underline">
+                  <Link
+                    href="/privacy"
+                    className="text-brand-primary-100 hover:underline"
+                  >
                     política de privacidad
                   </Link>
                 </Label>
@@ -369,15 +422,21 @@ export default function RegisterPage() {
         {/* Benefits */}
         <div className="mt-8">
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-brand-bg-300">
-            <h3 className="font-bold text-brand-text-200 mb-4 text-center">🎉 ¿Por qué elegir MenuData?</h3>
+            <h3 className="font-bold text-brand-text-200 mb-4 text-center">
+              🎉 ¿Por qué elegir MenuData?
+            </h3>
             <div className="grid grid-cols-1 gap-3">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-brand-accent-100 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm">⚡</span>
                 </div>
                 <div>
-                  <p className="font-medium text-brand-text-200 text-sm">Setup en 24 horas</p>
-                  <p className="text-xs text-brand-text-100">Tu menú estará funcionando mañana</p>
+                  <p className="font-medium text-brand-text-200 text-sm">
+                    Setup en 24 horas
+                  </p>
+                  <p className="text-xs text-brand-text-100">
+                    Tu menú estará funcionando mañana
+                  </p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -385,8 +444,12 @@ export default function RegisterPage() {
                   <span className="text-white text-sm">💬</span>
                 </div>
                 <div>
-                  <p className="font-medium text-brand-text-200 text-sm">Soporte humano</p>
-                  <p className="text-xs text-brand-text-100">Sin bots, personas reales te ayudan</p>
+                  <p className="font-medium text-brand-text-200 text-sm">
+                    Soporte humano
+                  </p>
+                  <p className="text-xs text-brand-text-100">
+                    Sin bots, personas reales te ayudan
+                  </p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -394,8 +457,12 @@ export default function RegisterPage() {
                   <span className="text-white text-sm">🆓</span>
                 </div>
                 <div>
-                  <p className="font-medium text-brand-text-200 text-sm">Plan gratuito disponible</p>
-                  <p className="text-xs text-brand-text-100">Hasta 25 platos sin costo</p>
+                  <p className="font-medium text-brand-text-200 text-sm">
+                    Plan gratuito disponible
+                  </p>
+                  <p className="text-xs text-brand-text-100">
+                    Hasta 25 platos sin costo
+                  </p>
                 </div>
               </div>
             </div>
@@ -403,5 +470,5 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

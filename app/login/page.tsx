@@ -1,34 +1,40 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useAuth } from "@/components/auth-provider"
+import { useAuth } from "@/components/auth-provider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { AlertCircle, ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const router = useRouter()
-  const { signInWithGoogle, signInWithEmail, isConfigured } = useAuth()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const { signInWithGoogle, signInWithEmail, isConfigured } = useAuth();
 
   // Redirect to home if Supabase is not configured
   useEffect(() => {
     if (!isConfigured) {
-      router.push("/")
+      router.push("/");
     }
-  }, [isConfigured, router])
+  }, [isConfigured, router]);
 
   if (!isConfigured) {
     return (
@@ -36,9 +42,12 @@ export default function LoginPage() {
         <Card className="max-w-md w-full">
           <CardContent className="text-center p-8">
             <AlertCircle className="h-16 w-16 text-brand-accent-100 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-brand-text-200 mb-2">Modo Demo</h2>
+            <h2 className="text-2xl font-bold text-brand-text-200 mb-2">
+              Modo Demo
+            </h2>
             <p className="text-brand-text-100 mb-4">
-              La autenticación no está configurada. Esta es una versión de demostración.
+              La autenticación no está configurada. Esta es una versión de
+              demostración.
             </p>
             <Link href="/">
               <Button className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 text-white">
@@ -49,42 +58,42 @@ export default function LoginPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   const handleGoogleSignIn = async () => {
     try {
-      setIsLoading(true)
-      setError("")
-      await signInWithGoogle()
+      setIsLoading(true);
+      setError("");
+      await signInWithGoogle();
     } catch (error: any) {
-      setError("Error al iniciar sesión con Google")
-      console.error("Google sign in error:", error)
+      setError("Error al iniciar sesión con Google");
+      console.error("Google sign in error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      setIsLoading(true)
-      setError("")
+      setIsLoading(true);
+      setError("");
 
-      const { error: signInError } = await signInWithEmail(email, password)
+      const { error: signInError } = await signInWithEmail(email, password);
 
       if (signInError) {
-        setError(signInError)
+        setError(signInError);
       } else {
-        router.push("/admin")
+        router.push("/admin");
       }
     } catch (error: any) {
-      setError("Error al iniciar sesión")
-      console.error("Email sign in error:", error)
+      setError("Error al iniciar sesión");
+      console.error("Email sign in error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Rest of the component remains the same...
   return (
@@ -116,13 +125,19 @@ export default function LoginPage() {
             </span>
           </div>
 
-          <h1 className="text-3xl font-bold text-brand-text-200 mb-2">¡Bienvenido de vuelta!</h1>
-          <p className="text-brand-text-100">Accede a tu panel de administración</p>
+          <h1 className="text-3xl font-bold text-brand-text-200 mb-2">
+            ¡Bienvenido de vuelta!
+          </h1>
+          <p className="text-brand-text-100">
+            Accede a tu panel de administración
+          </p>
         </div>
 
         <Card className="bg-white/80 backdrop-blur-sm border-brand-bg-300 shadow-2xl">
           <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl text-center text-brand-text-200">Iniciar Sesión</CardTitle>
+            <CardTitle className="text-2xl text-center text-brand-text-200">
+              Iniciar Sesión
+            </CardTitle>
             <CardDescription className="text-center text-brand-text-100">
               Gestiona tu menú digital desde cualquier lugar
             </CardDescription>
@@ -131,7 +146,9 @@ export default function LoginPage() {
           <CardContent className="space-y-6">
             {error && (
               <Alert className="border-brand-primary-200 bg-brand-primary-200/10">
-                <AlertDescription className="text-brand-primary-200">{error}</AlertDescription>
+                <AlertDescription className="text-brand-primary-200">
+                  {error}
+                </AlertDescription>
               </Alert>
             )}
 
@@ -168,7 +185,9 @@ export default function LoginPage() {
                 <Separator className="w-full" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-brand-text-100">O continúa con email</span>
+                <span className="bg-white px-2 text-brand-text-100">
+                  O continúa con email
+                </span>
               </div>
             </div>
 
@@ -259,9 +278,12 @@ export default function LoginPage() {
         {/* Additional Info */}
         <div className="mt-8 text-center">
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-brand-bg-300">
-            <h3 className="font-bold text-brand-text-200 mb-2">🚀 ¿Nuevo en MenuData?</h3>
+            <h3 className="font-bold text-brand-text-200 mb-2">
+              🚀 ¿Nuevo en MenuData?
+            </h3>
             <p className="text-sm text-brand-text-100 mb-4">
-              Crea tu cuenta y ten tu menú digital funcionando en menos de 24 horas
+              Crea tu cuenta y ten tu menú digital funcionando en menos de 24
+              horas
             </p>
             <div className="flex items-center justify-center space-x-4 text-xs text-brand-text-100">
               <span className="flex items-center space-x-1">
@@ -281,5 +303,5 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
