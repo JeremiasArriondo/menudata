@@ -4,344 +4,294 @@ import { useAuth } from "@/components/auth-provider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { supabase } from "@/lib/supabase";
 import {
   CheckCircle,
   Edit,
   ExternalLink,
   Eye,
   Loader2,
+  MenuIcon,
   Plus,
   QrCode,
+  Share2,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-interface Restaurant {
+interface RestaurantType {
   id: string;
   name: string;
   slug: string;
   description: string;
   theme: string;
-  phone: string;
-  address: string;
   is_active: boolean;
   created_at: string;
-  menu_categories: Array<{
-    id: string;
-    name: string;
-    icon: string;
-    sort_order: number;
-    menu_items: Array<{
-      id: string;
-      name: string;
-      price: number;
-      is_available: boolean;
-    }>;
-  }>;
+  _count?: {
+    categories: number;
+    items: number;
+  };
 }
 
 export default function AdminPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, session, loading: authLoading } = useAuth();
-
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restaurants, setRestaurants] = useState<RestaurantType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const success = searchParams.get("success");
 
-  // Check for success message
-  const restaurantSlug = searchParams.get("restaurant");
-  const showSuccess = searchParams.get("success") === "true";
-
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-    }
-  }, [user, authLoading, router]);
-
-  // Fetch restaurants
-  useEffect(() => {
-    if (user && session?.access_token) {
+    if (user) {
       fetchRestaurants();
     }
-  }, [user, session]);
+  }, [user]);
 
   const fetchRestaurants = async () => {
-    if (!session?.access_token) return;
-
     try {
       setLoading(true);
-      const response = await fetch("/api/restaurants", {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
 
-      if (!response.ok) {
-        throw new Error("Error al cargar restaurantes");
+      // Obtener restaurantes del usuario
+      const { data: restaurantsData, error: restaurantsError } = await supabase!
+        .from("restaurants")
+        .select(
+          `
+          id,
+          name,
+          slug,
+          description,
+          theme,
+          is_active,
+          created_at
+        `
+        )
+        .eq("owner_id", user?.id)
+        .order("created_at", { ascending: false });
+
+      if (restaurantsError) {
+        throw restaurantsError;
       }
 
-      const data = await response.json();
-      setRestaurants(data.restaurants || []);
-    } catch (error) {
-      console.error("Error fetching restaurants:", error);
-      setError(
-        error instanceof Error ? error.message : "Error al cargar restaurantes"
+      // Para cada restaurante, obtener el conteo de categorías e items
+      const restaurantsWithCounts = await Promise.all(
+        (restaurantsData || []).map(async (restaurant) => {
+          const [categoriesResult, itemsResult] = await Promise.all([
+            supabase!
+              .from("menu_categories")
+              .select("id", { count: "exact" })
+              .eq("restaurant_id", restaurant.id),
+            supabase!
+              .from("menu_items")
+              .select("id", { count: "exact" })
+              .eq("restaurant_id", restaurant.id),
+          ]);
+
+          return {
+            ...restaurant,
+            _count: {
+              categories: categoriesResult.count || 0,
+              items: itemsResult.count || 0,
+            },
+          };
+        })
       );
+
+      setRestaurants(restaurantsWithCounts);
+    } catch (err) {
+      console.error("Error fetching restaurants:", err);
+      setError("Error al cargar los restaurantes");
     } finally {
       setLoading(false);
     }
   };
 
-  // Show loading while checking auth
-  if (authLoading) {
+  const getThemeLabel = (theme: string) => {
+    const themes: Record<string, string> = {
+      clasico: "Clásico",
+      moderno: "Moderno",
+      elegante: "Elegante",
+      colorido: "Colorido",
+      rustico: "Rústico",
+      premium: "Premium",
+    };
+    return themes[theme] || theme;
+  };
+
+  const getThemeColor = (theme: string) => {
+    const colors: Record<string, string> = {
+      clasico: "bg-amber-100 text-amber-800",
+      moderno: "bg-blue-100 text-blue-800",
+      elegante: "bg-purple-100 text-purple-800",
+      colorido: "bg-pink-100 text-pink-800",
+      rustico: "bg-green-100 text-green-800",
+      premium: "bg-gray-100 text-gray-800",
+    };
+    return colors[theme] || "bg-gray-100 text-gray-800";
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-brand-bg-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-primary-100 mx-auto mb-4" />
-          <p className="text-brand-text-100">Verificando autenticación...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Cargando tus restaurantes...</p>
         </div>
       </div>
     );
   }
 
-  // Don't render if not authenticated
-  if (!user) {
-    return null;
-  }
-
-  const getThemeEmoji = (theme: string) => {
-    const themeMap: Record<string, string> = {
-      clasico: "🏛️",
-      moderno: "✨",
-      elegante: "💎",
-      colorido: "🌈",
-      rustico: "🏕️",
-      premium: "👑",
-    };
-    return themeMap[theme] || "🍽️";
-  };
-
   return (
-    <div className="min-h-screen bg-brand-bg-100">
-      {/* Header */}
-      <header className="bg-white dark:bg-brand-text-100 shadow-sm border-b border-brand-bg-300">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">M</span>
-                </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 bg-clip-text text-transparent">
-                  Panel de Administración
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-brand-text-100">
-                Hola, {user.user_metadata?.full_name || user.email}
-              </span>
-              <Link href="/crear-menu">
-                <Button className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 hover:from-brand-primary-200 hover:to-brand-primary-100 text-white">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nuevo Menú
-                </Button>
-              </Link>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Panel de Administración
+          </h1>
+          <p className="text-gray-600 mt-2">Gestiona tus menús digitales</p>
         </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-8">
         {/* Success Alert */}
-        {showSuccess && restaurantSlug && (
-          <Alert className="mb-6 border-green-500 bg-green-50">
+        {success && (
+          <Alert className="mb-6 border-green-200 bg-green-50">
             <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-700">
-              ¡Menú creado exitosamente! Tu restaurante ya está disponible en{" "}
-              <Link
-                href={`/${restaurantSlug}`}
-                className="font-medium underline hover:no-underline"
-                target="_blank"
-              >
-                menudata.com/{restaurantSlug}
-              </Link>
+            <AlertDescription className="text-green-800">
+              ¡Menú creado exitosamente! Ya puedes compartir tu menú digital.
             </AlertDescription>
           </Alert>
         )}
 
         {/* Error Alert */}
         {error && (
-          <Alert className="mb-6 border-red-500 bg-red-50">
-            <AlertDescription className="text-red-700">
-              {error}
-            </AlertDescription>
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        {/* Loading State */}
-        {loading && (
-          <div className="text-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-brand-primary-100 mx-auto mb-4" />
-            <p className="text-brand-text-100">Cargando tus restaurantes...</p>
-          </div>
-        )}
+        {/* Actions */}
+        <div className="mb-6">
+          <Link href="/crear-menu">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Crear Nuevo Menú
+            </Button>
+          </Link>
+        </div>
 
-        {/* Empty State */}
-        {!loading && restaurants.length === 0 && (
-          <div className="text-center py-12">
-            <div className="max-w-md mx-auto">
-              <div className="h-24 w-24 bg-brand-bg-200 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Plus className="h-12 w-12 text-brand-text-100" />
-              </div>
-              <h2 className="text-2xl font-bold text-brand-text-200 mb-2">
-                ¡Crea tu primer menú!
-              </h2>
-              <p className="text-brand-text-100 mb-6">
-                Comienza creando tu menú digital. Es rápido y fácil.
+        {/* Restaurants Grid */}
+        {restaurants.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <MenuIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No tienes restaurantes aún
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Crea tu primer menú digital para empezar
               </p>
               <Link href="/crear-menu">
-                <Button
-                  size="lg"
-                  className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 hover:from-brand-primary-200 hover:to-brand-primary-100 text-white"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
                   Crear Mi Primer Menú
                 </Button>
               </Link>
-            </div>
-          </div>
-        )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {restaurants.map((restaurant) => (
+              <Card
+                key={restaurant.id}
+                className="hover:shadow-lg transition-shadow"
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg">
+                        {restaurant.name}
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        {restaurant.description || "Sin descripción"}
+                      </CardDescription>
+                    </div>
+                    <Badge
+                      variant={restaurant.is_active ? "default" : "secondary"}
+                      className={
+                        restaurant.is_active
+                          ? "bg-green-100 text-green-800"
+                          : ""
+                      }
+                    >
+                      {restaurant.is_active ? "Activo" : "Inactivo"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Stats */}
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>
+                        {restaurant._count?.categories || 0} categorías
+                      </span>
+                      <span>{restaurant._count?.items || 0} platos</span>
+                    </div>
 
-        {/* Restaurants Grid */}
-        {!loading && restaurants.length > 0 && (
-          <>
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-brand-text-200 mb-2">
-                Mis Restaurantes
-              </h1>
-              <p className="text-brand-text-100">
-                Gestiona tus menús digitales
-              </p>
-            </div>
+                    {/* Theme */}
+                    <div>
+                      <Badge className={getThemeColor(restaurant.theme)}>
+                        {getThemeLabel(restaurant.theme)}
+                      </Badge>
+                    </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {restaurants.map((restaurant) => {
-                const totalItems = restaurant.menu_categories.reduce(
-                  (acc, cat) => acc + cat.menu_items.length,
-                  0
-                );
-                const activeCategories = restaurant.menu_categories.filter(
-                  (cat) => cat.menu_items.length > 0
-                ).length;
+                    {/* Actions */}
+                    <div className="flex flex-wrap gap-2">
+                      <Link href={`/${restaurant.slug}`} target="_blank">
+                        <Button size="sm" variant="outline">
+                          <Eye className="mr-1 h-3 w-3" />
+                          Ver Menú
+                        </Button>
+                      </Link>
 
-                return (
-                  <Card
-                    key={restaurant.id}
-                    className="bg-white dark:bg-brand-text-100/10 border-brand-bg-300 hover:shadow-lg transition-all duration-200"
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3">
-                          <span className="text-2xl">
-                            {getThemeEmoji(restaurant.theme)}
-                          </span>
-                          <div>
-                            <CardTitle className="text-lg text-brand-text-200">
-                              {restaurant.name}
-                            </CardTitle>
-                            <p className="text-sm text-brand-text-100">
-                              menudata.com/{restaurant.slug}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge
-                          className={`${
-                            restaurant.is_active
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {restaurant.is_active ? "Activo" : "Inactivo"}
-                        </Badge>
-                      </div>
-                      {restaurant.description && (
-                        <p className="text-sm text-brand-text-100 mt-2">
-                          {restaurant.description}
-                        </p>
-                      )}
-                    </CardHeader>
-
-                    <CardContent className="space-y-4">
-                      {/* Stats */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-brand-bg-100 p-3 rounded-lg text-center">
-                          <p className="text-xl font-bold text-brand-primary-100">
-                            {totalItems}
-                          </p>
-                          <p className="text-xs text-brand-text-100">Platos</p>
-                        </div>
-                        <div className="bg-brand-bg-100 p-3 rounded-lg text-center">
-                          <p className="text-xl font-bold text-brand-accent-200">
-                            {activeCategories}
-                          </p>
-                          <p className="text-xs text-brand-text-100">
-                            Categorías
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex flex-wrap gap-2">
-                        <Link href={`/${restaurant.slug}`} target="_blank">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-brand-primary-100 text-brand-primary-100 hover:bg-brand-primary-100 hover:text-white bg-transparent"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Ver Menú
-                            <ExternalLink className="h-3 w-3 ml-1" />
-                          </Button>
-                        </Link>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-brand-text-100 text-brand-text-100 hover:bg-brand-text-100 hover:text-white bg-transparent"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
+                      <Link href={`/editar-menu?id=${restaurant.id}`}>
+                        <Button size="sm" variant="outline">
+                          <Edit className="mr-1 h-3 w-3" />
                           Editar
                         </Button>
+                      </Link>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-brand-accent-100 text-brand-accent-100 hover:bg-brand-accent-100 hover:text-white bg-transparent"
-                        >
-                          <QrCode className="h-4 w-4 mr-1" />
-                          QR
-                        </Button>
-                      </div>
+                      <Button size="sm" variant="outline">
+                        <QrCode className="mr-1 h-3 w-3" />
+                        QR
+                      </Button>
 
-                      {/* Additional Info */}
-                      <div className="text-xs text-brand-text-100 pt-2 border-t border-brand-bg-300">
-                        <p>
-                          Creado:{" "}
-                          {new Date(restaurant.created_at).toLocaleDateString()}
-                        </p>
-                        <p>Tema: {restaurant.theme}</p>
+                      <Button size="sm" variant="outline">
+                        <Share2 className="mr-1 h-3 w-3" />
+                        Compartir
+                      </Button>
+                    </div>
+
+                    {/* URL */}
+                    <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate">
+                          {window.location.origin}/{restaurant.slug}
+                        </span>
+                        <ExternalLink className="h-3 w-3 ml-2 flex-shrink-0" />
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
       </div>
     </div>

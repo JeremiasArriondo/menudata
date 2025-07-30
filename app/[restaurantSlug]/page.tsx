@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Filter,
   Heart,
+  Loader2,
   MapPin,
   Phone,
   Search,
@@ -33,42 +34,50 @@ import { useEffect, useState } from "react";
 interface MenuItem {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
-  category: string;
-  featured: boolean;
-  available: boolean;
-  image?: string;
+  image_url: string | null;
+  ingredients: string[] | null;
+  allergens: string[] | null;
+  is_featured: boolean;
+  is_available: boolean;
+  sort_order: number;
   views: number;
   rating: number;
-  ingredients?: string[];
-  allergens?: string[];
 }
 
 interface MenuCategory {
   id: string;
   name: string;
   icon: string;
-  items: MenuItem[];
+  sort_order: number;
+  menu_items: MenuItem[];
 }
 
 interface Restaurant {
   id: string;
   name: string;
   slug: string;
-  description?: string;
-  phone?: string;
-  address?: string;
-  hours?: string;
-  website?: string;
-  theme: MenuTheme;
-  categories: MenuCategory[];
-  features?: {
+  description: string | null;
+  phone: string | null;
+  address: string | null;
+  hours: string | null;
+  website: string | null;
+  theme:
+    | "clasico"
+    | "moderno"
+    | "elegante"
+    | "colorido"
+    | "rustico"
+    | "premium";
+  logo_url: string | null;
+  features: {
     wifi: boolean;
     parking: boolean;
     delivery: boolean;
     takeaway: boolean;
-  };
+  } | null;
+  menu_categories: MenuCategory[];
 }
 
 interface MenuTheme {
@@ -91,222 +100,169 @@ interface MenuTheme {
   };
 }
 
+const themes: Record<string, MenuTheme> = {
+  clasico: {
+    id: "clasico",
+    name: "Clásico",
+    colors: {
+      primary: "#F84E93",
+      secondary: "#F179B6",
+      accent: "#FEDA00",
+      background: "#FFF1F7",
+      card: "#FFFFFF",
+      text: "#2E2E2E",
+      textSecondary: "#6A6A6A",
+    },
+    style: {
+      borderRadius: "rounded-xl",
+      fontFamily: "font-serif",
+      cardStyle: "shadow-md border",
+      headerStyle: "text-center",
+    },
+  },
+  moderno: {
+    id: "moderno",
+    name: "Moderno",
+    colors: {
+      primary: "#6366F1",
+      secondary: "#8B5CF6",
+      accent: "#F59E0B",
+      background: "#F8FAFC",
+      card: "#FFFFFF",
+      text: "#1E293B",
+      textSecondary: "#64748B",
+    },
+    style: {
+      borderRadius: "rounded-2xl",
+      fontFamily: "font-sans",
+      cardStyle: "shadow-lg border-0",
+      headerStyle: "text-left",
+    },
+  },
+  elegante: {
+    id: "elegante",
+    name: "Elegante",
+    colors: {
+      primary: "#1F2937",
+      secondary: "#374151",
+      accent: "#D97706",
+      background: "#F9FAFB",
+      card: "#FFFFFF",
+      text: "#111827",
+      textSecondary: "#6B7280",
+    },
+    style: {
+      borderRadius: "rounded-lg",
+      fontFamily: "font-serif",
+      cardStyle: "shadow-sm border",
+      headerStyle: "text-center",
+    },
+  },
+  colorido: {
+    id: "colorido",
+    name: "Colorido",
+    colors: {
+      primary: "#EC4899",
+      secondary: "#F472B6",
+      accent: "#10B981",
+      background: "#FEF7FF",
+      card: "#FFFFFF",
+      text: "#1F2937",
+      textSecondary: "#6B7280",
+    },
+    style: {
+      borderRadius: "rounded-3xl",
+      fontFamily: "font-sans",
+      cardStyle: "shadow-xl border-2",
+      headerStyle: "text-center",
+    },
+  },
+  rustico: {
+    id: "rustico",
+    name: "Rústico",
+    colors: {
+      primary: "#92400E",
+      secondary: "#B45309",
+      accent: "#059669",
+      background: "#FFFBEB",
+      card: "#FFFFFF",
+      text: "#1C1917",
+      textSecondary: "#78716C",
+    },
+    style: {
+      borderRadius: "rounded-lg",
+      fontFamily: "font-serif",
+      cardStyle: "shadow-md border-2",
+      headerStyle: "text-left",
+    },
+  },
+  premium: {
+    id: "premium",
+    name: "Premium",
+    colors: {
+      primary: "#7C3AED",
+      secondary: "#8B5CF6",
+      accent: "#F59E0B",
+      background: "#FAFAFA",
+      card: "#FFFFFF",
+      text: "#18181B",
+      textSecondary: "#71717A",
+    },
+    style: {
+      borderRadius: "rounded-2xl",
+      fontFamily: "font-sans",
+      cardStyle: "shadow-2xl border-0",
+      headerStyle: "text-center",
+    },
+  },
+};
+
 export default function RestaurantMenuPage() {
   const params = useParams();
   const restaurantSlug = params.restaurantSlug as string;
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Datos de ejemplo - en producción vendría de la API
+  // Cargar datos del restaurante desde la API
   useEffect(() => {
     const loadRestaurantData = async () => {
-      setLoading(true);
+      try {
+        setLoading(true);
+        setError(null);
 
-      // Simular carga de datos
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+        const response = await fetch(
+          `/api/public/restaurants/${restaurantSlug}`
+        );
 
-      const mockRestaurant: Restaurant = {
-        id: "1",
-        name: "La Pizzería de Mario",
-        slug: restaurantSlug,
-        description: "Auténtica cocina italiana en el corazón de la ciudad",
-        phone: "+54 9 11 1234-5678",
-        address: "Av. Corrientes 1234, CABA",
-        hours: "Lun-Dom: 18:00 - 00:00",
-        website: "www.pizzeriamario.com",
-        features: {
-          wifi: true,
-          parking: false,
-          delivery: true,
-          takeaway: true,
-        },
-        theme: {
-          id: "clasico",
-          name: "Clásico",
-          colors: {
-            primary: "#F84E93",
-            secondary: "#F179B6",
-            accent: "#FEDA00",
-            background: "#FFF1F7",
-            card: "#FFFFFF",
-            text: "#2E2E2E",
-            textSecondary: "#6A6A6A",
-          },
-          style: {
-            borderRadius: "rounded-xl",
-            fontFamily: "font-serif",
-            cardStyle: "shadow-md border",
-            headerStyle: "text-center",
-          },
-        },
-        categories: [
-          {
-            id: "entradas",
-            name: "Entradas",
-            icon: "🍕",
-            items: [
-              {
-                id: "1",
-                name: "Pizza Margherita",
-                description: "Tomate, mozzarella, albahaca fresca",
-                price: 2500,
-                category: "entradas",
-                featured: true,
-                available: true,
-                views: 156,
-                rating: 4.8,
-                ingredients: [
-                  "Tomate",
-                  "Mozzarella",
-                  "Albahaca",
-                  "Aceite de oliva",
-                ],
-                allergens: ["Gluten", "Lácteos"],
-              },
-              {
-                id: "2",
-                name: "Empanadas Criollas",
-                description: "Carne cortada a cuchillo, cebolla, huevo",
-                price: 800,
-                category: "entradas",
-                featured: false,
-                available: true,
-                views: 89,
-                rating: 4.5,
-                ingredients: ["Carne", "Cebolla", "Huevo", "Aceitunas"],
-              },
-              {
-                id: "3",
-                name: "Bruschetta Italiana",
-                description: "Pan tostado con tomate, ajo y albahaca",
-                price: 1200,
-                category: "entradas",
-                featured: false,
-                available: true,
-                views: 67,
-                rating: 4.3,
-              },
-            ],
-          },
-          {
-            id: "principales",
-            name: "Principales",
-            icon: "🥘",
-            items: [
-              {
-                id: "4",
-                name: "Milanesa Napolitana",
-                description: "Con papas fritas caseras",
-                price: 3200,
-                category: "principales",
-                featured: true,
-                available: true,
-                views: 234,
-                rating: 4.9,
-                ingredients: [
-                  "Carne",
-                  "Pan rallado",
-                  "Tomate",
-                  "Jamón",
-                  "Queso",
-                ],
-              },
-              {
-                id: "5",
-                name: "Bife de Chorizo",
-                description: "Con ensalada mixta",
-                price: 4500,
-                category: "principales",
-                featured: false,
-                available: false,
-                views: 67,
-                rating: 4.7,
-              },
-              {
-                id: "6",
-                name: "Pasta Carbonara",
-                description: "Spaghetti con panceta, huevo y parmesano",
-                price: 2800,
-                category: "principales",
-                featured: true,
-                available: true,
-                views: 145,
-                rating: 4.6,
-              },
-            ],
-          },
-          {
-            id: "postres",
-            name: "Postres",
-            icon: "🍰",
-            items: [
-              {
-                id: "7",
-                name: "Tiramisu Casero",
-                description: "Receta tradicional italiana",
-                price: 1800,
-                category: "postres",
-                featured: false,
-                available: true,
-                views: 123,
-                rating: 4.6,
-              },
-              {
-                id: "8",
-                name: "Panna Cotta",
-                description: "Con frutos rojos",
-                price: 1600,
-                category: "postres",
-                featured: false,
-                available: true,
-                views: 89,
-                rating: 4.4,
-              },
-            ],
-          },
-          {
-            id: "bebidas",
-            name: "Bebidas",
-            icon: "🥤",
-            items: [
-              {
-                id: "9",
-                name: "Agua Mineral",
-                description: "500ml",
-                price: 500,
-                category: "bebidas",
-                featured: false,
-                available: true,
-                views: 45,
-                rating: 4.2,
-              },
-              {
-                id: "10",
-                name: "Vino Tinto de la Casa",
-                description: "Copa - Malbec argentino",
-                price: 1200,
-                category: "bebidas",
-                featured: true,
-                available: true,
-                views: 78,
-                rating: 4.5,
-              },
-            ],
-          },
-        ],
-      };
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError("Restaurante no encontrado");
+          } else {
+            setError("Error al cargar el menú");
+          }
+          return;
+        }
 
-      setRestaurant(mockRestaurant);
-      setLoading(false);
+        const data = await response.json();
+        setRestaurant(data.restaurant);
+      } catch (err) {
+        console.error("Error loading restaurant:", err);
+        setError("Error al cargar el menú");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadRestaurantData();
+    if (restaurantSlug) {
+      loadRestaurantData();
+    }
   }, [restaurantSlug]);
 
   // Cargar favoritos del localStorage
@@ -348,52 +304,49 @@ export default function RestaurantMenuPage() {
     }
   };
 
-  const filteredItems =
-    restaurant?.categories.flatMap((category) =>
-      category.items.filter((item) => {
-        const matchesSearch =
-          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.description.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory =
-          selectedCategory === "all" || item.category === selectedCategory;
-        const isAvailable = item.available;
+  const handleItemClick = async (item: MenuItem) => {
+    setSelectedItem(item);
 
-        return matchesSearch && matchesCategory && isAvailable;
-      })
-    ) || [];
-
-  const featuredItems =
-    restaurant?.categories.flatMap((category) =>
-      category.items.filter((item) => item.featured && item.available)
-    ) || [];
+    // Registrar vista del item
+    try {
+      await fetch(
+        `/api/public/restaurants/${restaurantSlug}/items/${item.id}/view`,
+        {
+          method: "POST",
+        }
+      );
+    } catch (error) {
+      console.error("Error tracking item view:", error);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-bg-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-brand-primary-100 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-brand-text-100">Cargando menú...</p>
+          <Loader2 className="w-16 h-16 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-gray-600">Cargando menú...</p>
         </div>
       </div>
     );
   }
 
-  if (!restaurant) {
+  if (error || !restaurant) {
     return (
-      <div className="min-h-screen bg-brand-bg-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="text-center p-8">
             <div className="text-6xl mb-4">🍽️</div>
-            <h2 className="text-2xl font-bold text-brand-text-200 mb-2">
-              Restaurante no encontrado
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              {error || "Restaurante no encontrado"}
             </h2>
-            <p className="text-brand-text-100 mb-4">
+            <p className="text-gray-600 mb-4">
               No pudimos encontrar el menú que buscas. Verifica la URL o
               contacta al restaurante.
             </p>
             <Button
               onClick={() => window.history.back()}
-              className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Volver
@@ -404,7 +357,23 @@ export default function RestaurantMenuPage() {
     );
   }
 
-  const theme = restaurant.theme;
+  const theme = themes[restaurant.theme] || themes.clasico;
+
+  const filteredItems = restaurant.menu_categories.flatMap((category) =>
+    category.menu_items.filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.description &&
+          item.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesCategory =
+        selectedCategory === "all" || category.id === selectedCategory;
+      return matchesSearch && matchesCategory && item.is_available;
+    })
+  );
+
+  const featuredItems = restaurant.menu_categories.flatMap((category) =>
+    category.menu_items.filter((item) => item.is_featured && item.is_available)
+  );
 
   return (
     <div
@@ -635,7 +604,7 @@ export default function RestaurantMenuPage() {
                   >
                     Todos
                   </Button>
-                  {restaurant.categories.map((category) => (
+                  {restaurant.menu_categories.map((category) => (
                     <Button
                       key={category.id}
                       variant={
@@ -683,7 +652,7 @@ export default function RestaurantMenuPage() {
                   key={item.id}
                   className={`${theme.style.cardStyle} ${theme.style.borderRadius} cursor-pointer hover:shadow-lg transition-all duration-200`}
                   style={{ backgroundColor: theme.colors.card }}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => handleItemClick(item)}
                 >
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
@@ -726,12 +695,14 @@ export default function RestaurantMenuPage() {
                         </Button>
                       </div>
                     </div>
-                    <p
-                      className="text-sm mb-3"
-                      style={{ color: theme.colors.textSecondary }}
-                    >
-                      {item.description}
-                    </p>
+                    {item.description && (
+                      <p
+                        className="text-sm mb-3"
+                        style={{ color: theme.colors.textSecondary }}
+                      >
+                        {item.description}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between">
                       <p
                         className="font-bold text-xl"
@@ -784,7 +755,7 @@ export default function RestaurantMenuPage() {
         >
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-6">
             <TabsTrigger value="all">Todos</TabsTrigger>
-            {restaurant.categories.map((category) => (
+            {restaurant.menu_categories.slice(0, 3).map((category) => (
               <TabsTrigger
                 key={category.id}
                 value={category.id}
@@ -812,7 +783,7 @@ export default function RestaurantMenuPage() {
                         key={item.id}
                         className={`${theme.style.cardStyle} ${theme.style.borderRadius} cursor-pointer hover:shadow-lg transition-all duration-200`}
                         style={{ backgroundColor: theme.colors.card }}
-                        onClick={() => setSelectedItem(item)}
+                        onClick={() => handleItemClick(item)}
                       >
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-2">
@@ -843,12 +814,14 @@ export default function RestaurantMenuPage() {
                               </Button>
                             </div>
                           </div>
-                          <p
-                            className="text-sm mb-3"
-                            style={{ color: theme.colors.textSecondary }}
-                          >
-                            {item.description}
-                          </p>
+                          {item.description && (
+                            <p
+                              className="text-sm mb-3"
+                              style={{ color: theme.colors.textSecondary }}
+                            >
+                              {item.description}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <p
                               className="font-bold text-lg"
@@ -856,7 +829,7 @@ export default function RestaurantMenuPage() {
                             >
                               ${item.price}
                             </p>
-                            {item.featured && (
+                            {item.is_featured && (
                               <Badge
                                 className="text-xs"
                                 style={{
@@ -877,7 +850,7 @@ export default function RestaurantMenuPage() {
                   </div>
                 </div>
               ) : (
-                restaurant.categories.map((category) => (
+                restaurant.menu_categories.map((category) => (
                   <div key={category.id}>
                     <h3
                       className="text-xl font-bold mb-4 flex items-center"
@@ -887,14 +860,14 @@ export default function RestaurantMenuPage() {
                       {category.name}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                      {category.items
-                        .filter((item) => item.available)
+                      {category.menu_items
+                        .filter((item) => item.is_available)
                         .map((item) => (
                           <Card
                             key={item.id}
                             className={`${theme.style.cardStyle} ${theme.style.borderRadius} cursor-pointer hover:shadow-lg transition-all duration-200`}
                             style={{ backgroundColor: theme.colors.card }}
-                            onClick={() => setSelectedItem(item)}
+                            onClick={() => handleItemClick(item)}
                           >
                             <CardContent className="p-4">
                               <div className="flex justify-between items-start mb-2">
@@ -905,7 +878,7 @@ export default function RestaurantMenuPage() {
                                   {item.name}
                                 </h4>
                                 <div className="flex items-center space-x-1">
-                                  {item.featured && (
+                                  {item.is_featured && (
                                     <Star
                                       className="h-4 w-4 fill-current"
                                       style={{ color: theme.colors.accent }}
@@ -931,12 +904,14 @@ export default function RestaurantMenuPage() {
                                   </Button>
                                 </div>
                               </div>
-                              <p
-                                className="text-sm mb-3"
-                                style={{ color: theme.colors.textSecondary }}
-                              >
-                                {item.description}
-                              </p>
+                              {item.description && (
+                                <p
+                                  className="text-sm mb-3"
+                                  style={{ color: theme.colors.textSecondary }}
+                                >
+                                  {item.description}
+                                </p>
+                              )}
                               <div className="flex items-center justify-between">
                                 <p
                                   className="font-bold text-lg"
@@ -961,7 +936,7 @@ export default function RestaurantMenuPage() {
                                       </span>
                                     </div>
                                   )}
-                                  {item.featured && (
+                                  {item.is_featured && (
                                     <Badge
                                       className="text-xs"
                                       style={{
@@ -987,7 +962,7 @@ export default function RestaurantMenuPage() {
             </div>
           </TabsContent>
 
-          {restaurant.categories.map((category) => (
+          {restaurant.menu_categories.map((category) => (
             <TabsContent key={category.id} value={category.id}>
               <div>
                 <h3
@@ -998,14 +973,14 @@ export default function RestaurantMenuPage() {
                   {category.name}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {category.items
-                    .filter((item) => item.available)
+                  {category.menu_items
+                    .filter((item) => item.is_available)
                     .map((item) => (
                       <Card
                         key={item.id}
                         className={`${theme.style.cardStyle} ${theme.style.borderRadius} cursor-pointer hover:shadow-lg transition-all duration-200`}
                         style={{ backgroundColor: theme.colors.card }}
-                        onClick={() => setSelectedItem(item)}
+                        onClick={() => handleItemClick(item)}
                       >
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-2">
@@ -1016,7 +991,7 @@ export default function RestaurantMenuPage() {
                               {item.name}
                             </h4>
                             <div className="flex items-center space-x-1">
-                              {item.featured && (
+                              {item.is_featured && (
                                 <Star
                                   className="h-4 w-4 fill-current"
                                   style={{ color: theme.colors.accent }}
@@ -1042,12 +1017,14 @@ export default function RestaurantMenuPage() {
                               </Button>
                             </div>
                           </div>
-                          <p
-                            className="text-sm mb-3"
-                            style={{ color: theme.colors.textSecondary }}
-                          >
-                            {item.description}
-                          </p>
+                          {item.description && (
+                            <p
+                              className="text-sm mb-3"
+                              style={{ color: theme.colors.textSecondary }}
+                            >
+                              {item.description}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <p
                               className="font-bold text-lg"
@@ -1072,7 +1049,7 @@ export default function RestaurantMenuPage() {
                                   </span>
                                 </div>
                               )}
-                              {item.featured && (
+                              {item.is_featured && (
                                 <Badge
                                   className="text-xs"
                                   style={{
@@ -1114,7 +1091,7 @@ export default function RestaurantMenuPage() {
             Menú digital creado con
           </p>
           <div className="flex items-center justify-center space-x-2">
-            <div className="h-6 w-6 rounded bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 flex items-center justify-center">
+            <div className="h-6 w-6 rounded bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
               <span className="text-white text-xs font-bold">M</span>
             </div>
             <span className="font-bold" style={{ color: theme.colors.primary }}>
@@ -1170,11 +1147,13 @@ export default function RestaurantMenuPage() {
                     </Button>
                   </div>
                 </DialogTitle>
-                <DialogDescription
-                  style={{ color: theme.colors.textSecondary }}
-                >
-                  {selectedItem.description}
-                </DialogDescription>
+                {selectedItem.description && (
+                  <DialogDescription
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    {selectedItem.description}
+                  </DialogDescription>
+                )}
               </DialogHeader>
 
               <div className="space-y-4">
@@ -1197,7 +1176,7 @@ export default function RestaurantMenuPage() {
                         </span>
                       </div>
                     )}
-                    {selectedItem.featured && (
+                    {selectedItem.is_featured && (
                       <Badge
                         style={{
                           backgroundColor: theme.colors.accent,
@@ -1213,54 +1192,56 @@ export default function RestaurantMenuPage() {
                   </div>
                 </div>
 
-                {selectedItem.ingredients && (
-                  <div>
-                    <h4
-                      className="font-medium mb-2"
-                      style={{ color: theme.colors.text }}
-                    >
-                      Ingredientes:
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedItem.ingredients.map((ingredient, index) => (
-                        <Badge
-                          key={index}
-                          variant="outline"
-                          style={{
-                            borderColor: theme.colors.primary,
-                            color: theme.colors.primary,
-                          }}
-                        >
-                          {ingredient}
-                        </Badge>
-                      ))}
+                {selectedItem.ingredients &&
+                  selectedItem.ingredients.length > 0 && (
+                    <div>
+                      <h4
+                        className="font-medium mb-2"
+                        style={{ color: theme.colors.text }}
+                      >
+                        Ingredientes:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedItem.ingredients.map((ingredient, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            style={{
+                              borderColor: theme.colors.primary,
+                              color: theme.colors.primary,
+                            }}
+                          >
+                            {ingredient}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {selectedItem.allergens && (
-                  <div>
-                    <h4
-                      className="font-medium mb-2"
-                      style={{ color: theme.colors.text }}
-                    >
-                      Alérgenos:
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedItem.allergens.map((allergen, index) => (
-                        <Badge
-                          key={index}
-                          style={{
-                            backgroundColor: theme.colors.accent + "20",
-                            color: theme.colors.text,
-                          }}
-                        >
-                          ⚠️ {allergen}
-                        </Badge>
-                      ))}
+                {selectedItem.allergens &&
+                  selectedItem.allergens.length > 0 && (
+                    <div>
+                      <h4
+                        className="font-medium mb-2"
+                        style={{ color: theme.colors.text }}
+                      >
+                        Alérgenos:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedItem.allergens.map((allergen, index) => (
+                          <Badge
+                            key={index}
+                            style={{
+                              backgroundColor: theme.colors.accent + "20",
+                              color: theme.colors.text,
+                            }}
+                          >
+                            ⚠️ {allergen}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 <Separator
                   style={{ backgroundColor: theme.colors.primary + "20" }}
