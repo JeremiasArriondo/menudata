@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthButton } from "@/components/auth-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -223,9 +224,10 @@ export default function LandingPage() {
               <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
-            <Button className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 hover:from-brand-primary-200 hover:to-brand-primary-100 text-white">
+            <AuthButton />
+            {/* <Button className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 hover:from-brand-primary-200 hover:to-brand-primary-100 text-white">
               Comenzar Ahora
-            </Button>
+            </Button> */}
           </nav>
 
           <div className="md:hidden flex items-center space-x-2">

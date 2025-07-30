@@ -2,6 +2,8 @@
 
 import type React from "react";
 
+import { useAuth } from "@/components/auth-provider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +32,7 @@ import {
   Edit,
   Eye,
   GripVertical,
+  Loader2,
   Palette,
   Plus,
   QrCode,
@@ -39,7 +42,8 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface MenuItem {
   id: string;
@@ -214,13 +218,21 @@ const menuThemes: MenuTheme[] = [
 ];
 
 export default function CrearMenuPage() {
+  const router = useRouter();
+  const { user, session, loading: authLoading } = useAuth();
+
   const [restaurantName, setRestaurantName] = useState("");
+  const [restaurantDescription, setRestaurantDescription] = useState("");
+  const [restaurantPhone, setRestaurantPhone] = useState("");
+  const [restaurantAddress, setRestaurantAddress] = useState("");
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedTheme, setSelectedTheme] = useState<MenuTheme>(menuThemes[0]);
   const [showPreview, setShowPreview] = useState(false);
   const [draggedItem, setDraggedItem] = useState<MenuItem | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [categories, setCategories] = useState<MenuCategory[]>([
     { id: "entradas", name: "Entradas", icon: "🍕", items: [] },
@@ -236,6 +248,30 @@ export default function CrearMenuPage() {
     category: "entradas",
     featured: false,
   });
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-brand-bg-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-primary-100 mx-auto mb-4" />
+          <p className="text-brand-text-100">Verificando autenticación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!user) {
+    return null;
+  }
 
   // Platos de ejemplo para arrastrar
   const exampleItems: MenuItem[] = [
@@ -395,6 +431,54 @@ export default function CrearMenuPage() {
     }
   };
 
+  const handleSaveMenu = async () => {
+    if (!session?.access_token) {
+      setSaveError("No hay sesión activa");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError("");
+
+    try {
+      const menuData = {
+        restaurant: {
+          name: restaurantName,
+          description: restaurantDescription,
+          phone: restaurantPhone,
+          address: restaurantAddress,
+          theme: selectedTheme.id,
+        },
+        categories: categories.filter((cat) => cat.items.length > 0), // Solo categorías con items
+      };
+
+      const response = await fetch("/api/restaurants/create-complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(menuData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al guardar el menú");
+      }
+
+      // Redirigir al admin con el slug del restaurante
+      router.push(`/admin?restaurant=${result.restaurant.slug}&success=true`);
+    } catch (error) {
+      console.error("Error saving menu:", error);
+      setSaveError(
+        error instanceof Error ? error.message : "Error al guardar el menú"
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const totalItems = categories.reduce(
     (acc, category) => acc + category.items.length,
     0
@@ -543,7 +627,7 @@ export default function CrearMenuPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-brand-bg-100">
       {/* Header */}
       <header className="bg-white dark:bg-brand-text-100 shadow-sm border-b border-brand-bg-300">
         <div className="container mx-auto px-4 py-4">
@@ -575,10 +659,25 @@ export default function CrearMenuPage() {
                 <Eye className="h-4 w-4 mr-2" />
                 Vista Previa
               </Button>
-              <Button className="bg-gradient-to-r from-brand-accent-100 to-brand-accent-200 hover:from-brand-accent-200 hover:to-brand-accent-100 text-white">
-                <Save className="h-4 w-4 mr-2" />
-                Guardar Menú
-              </Button>
+              {currentStep === 5 && (
+                <Button
+                  onClick={handleSaveMenu}
+                  disabled={isSaving}
+                  className="bg-gradient-to-r from-brand-accent-100 to-brand-accent-200 hover:from-brand-accent-200 hover:to-brand-accent-100 text-white"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Guardar Menú
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -626,6 +725,14 @@ export default function CrearMenuPage() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
+        {saveError && (
+          <Alert className="mb-6 border-red-500 bg-red-50">
+            <AlertDescription className="text-red-700">
+              {saveError}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {currentStep === 1 && (
           <div className="max-w-2xl mx-auto">
             <Card className="bg-white dark:bg-brand-text-100/10 border-brand-bg-300">
@@ -643,7 +750,7 @@ export default function CrearMenuPage() {
                     htmlFor="restaurant-name"
                     className="text-brand-text-200 font-medium"
                   >
-                    Nombre del Restaurante
+                    Nombre del Restaurante *
                   </Label>
                   <Input
                     id="restaurant-name"
@@ -657,6 +764,58 @@ export default function CrearMenuPage() {
                     {restaurantName.toLowerCase().replace(/\s+/g, "-")}
                   </p>
                 </div>
+
+                <div>
+                  <Label
+                    htmlFor="restaurant-description"
+                    className="text-brand-text-200 font-medium"
+                  >
+                    Descripción (opcional)
+                  </Label>
+                  <Textarea
+                    id="restaurant-description"
+                    value={restaurantDescription}
+                    onChange={(e) => setRestaurantDescription(e.target.value)}
+                    placeholder="Describe tu restaurante..."
+                    className="mt-2"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label
+                      htmlFor="restaurant-phone"
+                      className="text-brand-text-200 font-medium"
+                    >
+                      Teléfono (opcional)
+                    </Label>
+                    <Input
+                      id="restaurant-phone"
+                      value={restaurantPhone}
+                      onChange={(e) => setRestaurantPhone(e.target.value)}
+                      placeholder="+54 9 11 1234-5678"
+                      className="mt-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="restaurant-address"
+                      className="text-brand-text-200 font-medium"
+                    >
+                      Dirección (opcional)
+                    </Label>
+                    <Input
+                      id="restaurant-address"
+                      value={restaurantAddress}
+                      onChange={(e) => setRestaurantAddress(e.target.value)}
+                      placeholder="Av. Corrientes 1234"
+                      className="mt-2"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex justify-end">
                   <Button
                     onClick={() => setCurrentStep(2)}
@@ -869,7 +1028,7 @@ export default function CrearMenuPage() {
               {menuThemes.map((theme) => (
                 <Card
                   key={theme.id}
-                  className={`cursor-pointer transition-all bg-white duration-300 hover:shadow-xl ${
+                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
                     selectedTheme.id === theme.id
                       ? "ring-2 ring-brand-primary-100 shadow-xl scale-105"
                       : "hover:scale-102"
@@ -1038,10 +1197,11 @@ export default function CrearMenuPage() {
             <Card className="bg-white dark:bg-brand-text-100/10 border-brand-bg-300">
               <CardHeader>
                 <CardTitle className="text-2xl text-brand-text-200">
-                  ¡Menú Creado Exitosamente! 🎉
+                  ¡Menú Listo para Publicar! 🎉
                 </CardTitle>
                 <p className="text-brand-text-100">
-                  Tu menú digital está listo. Aquí tienes los próximos pasos:
+                  Tu menú digital está configurado. Haz clic en "Finalizar" para
+                  guardarlo en la base de datos.
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1054,26 +1214,7 @@ export default function CrearMenuPage() {
                           Tu QR personalizado
                         </h3>
                         <p className="text-sm text-brand-text-100">
-                          Listo para descargar e imprimir
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full border-brand-primary-100 text-brand-primary-100 hover:bg-brand-primary-100 hover:text-white bg-transparent"
-                    >
-                      Descargar QR
-                    </Button>
-                  </div>
-                  <div className="bg-brand-bg-100 p-6 rounded-xl">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <Smartphone className="h-8 w-8 text-brand-accent-200" />
-                      <div>
-                        <h3 className="font-bold text-brand-text-200">
-                          Link directo
-                        </h3>
-                        <p className="text-sm text-brand-text-100">
-                          Comparte con tus clientes
+                          Se generará automáticamente
                         </p>
                       </div>
                     </div>
@@ -1084,6 +1225,25 @@ export default function CrearMenuPage() {
                       </p>
                     </div>
                   </div>
+                  <div className="bg-brand-bg-100 p-6 rounded-xl">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <Smartphone className="h-8 w-8 text-brand-accent-200" />
+                      <div>
+                        <h3 className="font-bold text-brand-text-200">
+                          Panel de administración
+                        </h3>
+                        <p className="text-sm text-brand-text-100">
+                          Gestiona tu menú después
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-brand-bg-300">
+                      <p className="text-sm text-brand-text-100">
+                        Podrás editar platos, precios y configuración desde el
+                        admin
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-gradient-to-r from-brand-accent-100/20 to-brand-accent-200/20 p-6 rounded-xl border border-brand-accent-100/30">
@@ -1091,10 +1251,10 @@ export default function CrearMenuPage() {
                     <span className="text-2xl">{selectedTheme.preview}</span>
                     <div>
                       <h3 className="font-bold text-brand-text-200">
-                        Tema: {selectedTheme.name}
+                        Resumen: {restaurantName}
                       </h3>
                       <p className="text-sm text-brand-text-100">
-                        {selectedTheme.description}
+                        Tema: {selectedTheme.name}
                       </p>
                     </div>
                   </div>
@@ -1127,43 +1287,39 @@ export default function CrearMenuPage() {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-brand-accent-100">
-                        24h
+                        ✓
                       </p>
-                      <p className="text-xs text-brand-text-100">
-                        Para publicar
-                      </p>
+                      <p className="text-xs text-brand-text-100">Listo</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-r from-brand-accent-100/20 to-brand-accent-200/20 p-6 rounded-xl border border-brand-accent-100/30">
-                  <h3 className="font-bold text-brand-text-200 mb-2">
-                    ¿Qué sigue?
-                  </h3>
-                  <ul className="space-y-2 text-brand-text-100">
-                    <li className="flex items-center space-x-2">
-                      <span className="w-2 h-2 bg-brand-accent-200 rounded-full"></span>
-                      <span>
-                        Te contactaremos por WhatsApp para finalizar la
-                        configuración
-                      </span>
-                    </li>
-                    <li className="flex items-center space-x-2">
-                      <span className="w-2 h-2 bg-brand-accent-200 rounded-full"></span>
-                      <span>Tu menú estará publicado en 24-48 horas</span>
-                    </li>
-                    <li className="flex items-center space-x-2">
-                      <span className="w-2 h-2 bg-brand-accent-200 rounded-full"></span>
-                      <span>Recibirás el QR y link final listos para usar</span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="flex justify-center">
+                <div className="flex justify-between">
                   <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep(4)}
+                    disabled={isSaving}
+                    className="border-brand-text-100 text-brand-text-100"
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    onClick={handleSaveMenu}
+                    disabled={isSaving}
                     size="lg"
                     className="bg-gradient-to-r from-brand-primary-100 to-brand-primary-200 hover:from-brand-primary-200 hover:to-brand-primary-100 text-white px-8"
                   >
-                    Finalizar y Publicar Menú
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Guardando en base de datos...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Finalizar y Crear Menú
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>
@@ -1370,7 +1526,7 @@ export default function CrearMenuPage() {
 
       {/* Preview Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-brand-text-200 flex items-center">
               <Smartphone className="h-5 w-5 mr-2" />

@@ -15,7 +15,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -27,14 +35,14 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { signInWithGoogle, signInWithEmail, isConfigured } = useAuth();
+  const { signInWithGoogle, signInWithEmail, isConfigured, user } = useAuth();
 
   // Redirect to home if Supabase is not configured
   useEffect(() => {
-    if (!isConfigured) {
-      router.push("/");
+    if (user) {
+      router.push("/crear-menu");
     }
-  }, [isConfigured, router]);
+  }, [user, router]);
 
   if (!isConfigured) {
     return (
@@ -83,9 +91,15 @@ export default function LoginPage() {
       const { error: signInError } = await signInWithEmail(email, password);
 
       if (signInError) {
-        setError(signInError);
+        if (signInError.includes("Invalid login credentials")) {
+          setError("Email o contraseña incorrectos");
+        } else if (signInError.includes("Email not confirmed")) {
+          setError("Por favor confirma tu email antes de iniciar sesión");
+        } else {
+          setError(signInError);
+        }
       } else {
-        router.push("/admin");
+        router.push("/crear-menu");
       }
     } catch (error: any) {
       setError("Error al iniciar sesión");
@@ -126,11 +140,19 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-3xl font-bold text-brand-text-200 mb-2">
-            ¡Bienvenido de vuelta!
+            ¡Bienvenido!
           </h1>
-          <p className="text-brand-text-100">
-            Accede a tu panel de administración
-          </p>
+          <p className="text-brand-text-100">Crea tu menú digital en minutos</p>
+        </div>
+
+        {/* Status indicator */}
+        <div className="mb-6">
+          <Alert className="border-green-500 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-700">
+              ✅ Supabase configurado correctamente
+            </AlertDescription>
+          </Alert>
         </div>
 
         <Card className="bg-white/80 backdrop-blur-sm border-brand-bg-300 shadow-2xl">
@@ -139,14 +161,15 @@ export default function LoginPage() {
               Iniciar Sesión
             </CardTitle>
             <CardDescription className="text-center text-brand-text-100">
-              Gestiona tu menú digital desde cualquier lugar
+              Accede para crear tu menú digital
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
             {error && (
-              <Alert className="border-brand-primary-200 bg-brand-primary-200/10">
-                <AlertDescription className="text-brand-primary-200">
+              <Alert className="border-red-500 bg-red-50">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-700">
                   {error}
                 </AlertDescription>
               </Alert>
@@ -279,24 +302,23 @@ export default function LoginPage() {
         <div className="mt-8 text-center">
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-brand-bg-300">
             <h3 className="font-bold text-brand-text-200 mb-2">
-              🚀 ¿Nuevo en MenuData?
+              🚀 ¿Qué sigue después del login?
             </h3>
             <p className="text-sm text-brand-text-100 mb-4">
-              Crea tu cuenta y ten tu menú digital funcionando en menos de 24
-              horas
+              Te llevaremos paso a paso para crear tu menú digital
             </p>
             <div className="flex items-center justify-center space-x-4 text-xs text-brand-text-100">
               <span className="flex items-center space-x-1">
                 <span className="w-2 h-2 bg-brand-accent-100 rounded-full"></span>
-                <span>Setup gratuito</span>
+                <span>Crear menú</span>
               </span>
               <span className="flex items-center space-x-1">
                 <span className="w-2 h-2 bg-brand-accent-200 rounded-full"></span>
-                <span>Soporte 24/7</span>
+                <span>Elegir tema</span>
               </span>
               <span className="flex items-center space-x-1">
                 <span className="w-2 h-2 bg-brand-primary-100 rounded-full"></span>
-                <span>Sin permanencia</span>
+                <span>¡Listo!</span>
               </span>
             </div>
           </div>
