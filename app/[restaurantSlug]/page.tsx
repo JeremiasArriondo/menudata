@@ -1,38 +1,39 @@
-"use client";
-
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ArrowLeft,
-  Car,
-  Clock,
-  ExternalLink,
-  Filter,
-  Heart,
-  Loader2,
-  MapPin,
-  Phone,
-  Search,
-  Share2,
-  Star,
-  Wifi,
-} from "lucide-react";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import MenuItemList from "@/components/ui/menu-item-list";
+import { supabase } from "@/lib/supabase";
+import { Clock, MapPin, Phone } from "lucide-react";
+import Image from "next/image";
+import { notFound } from "next/navigation";
+interface Restaurant {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  address: string | null;
+  phone: string | null;
+  hours: string | null;
+  theme: string;
+  logo_url: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Category {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  icon: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 interface MenuItem {
   id: string;
+  restaurant_id: string;
+  category_id: string;
   name: string;
   description: string | null;
   price: number;
@@ -44,1222 +45,253 @@ interface MenuItem {
   sort_order: number;
   views: number;
   rating: number;
+  created_at: string;
+  updated_at: string;
 }
 
-interface MenuCategory {
-  id: string;
-  name: string;
-  icon: string;
-  sort_order: number;
-  menu_items: MenuItem[];
+interface RestaurantData {
+  restaurant: Restaurant;
+  categories: Category[];
+  menuItems: MenuItem[];
 }
 
-interface Restaurant {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  phone: string | null;
-  address: string | null;
-  hours: string | null;
-  website: string | null;
-  theme:
-    | "clasico"
-    | "moderno"
-    | "elegante"
-    | "colorido"
-    | "rustico"
-    | "premium";
-  logo_url: string | null;
-  features: {
-    wifi: boolean;
-    parking: boolean;
-    delivery: boolean;
-    takeaway: boolean;
-  } | null;
-  menu_categories: MenuCategory[];
+async function getRestaurantData(slug: string): Promise<RestaurantData | null> {
+  try {
+    const { data: restaurant, error: restaurantError } = await supabase!
+      .from("restaurants")
+      .select("*")
+      .eq("slug", slug)
+      .eq("is_active", true)
+      .single();
+
+    if (restaurantError || !restaurant) {
+      return null;
+    }
+
+    const { data: categories, error: categoriesError } = await supabase!
+      .from("menu_categories")
+      .select("*")
+      .eq("restaurant_id", restaurant.id)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+
+    if (categoriesError) {
+      return null;
+    }
+
+    // Obtener items de menú
+    const { data: menuItems, error: itemsError } = await supabase!
+      .from("menu_items")
+      .select("*")
+      .eq("restaurant_id", restaurant.id)
+      .eq("is_available", true)
+      .order("sort_order", { ascending: true });
+
+    if (itemsError) {
+      return null;
+    }
+
+    return {
+      restaurant,
+      categories: categories || [],
+      menuItems: menuItems || [],
+    };
+  } catch (error) {
+    console.error("Error fetching restaurant:", error);
+    return null;
+  }
 }
 
-interface MenuTheme {
-  id: string;
-  name: string;
-  colors: {
-    primary: string;
-    secondary: string;
-    accent: string;
-    background: string;
-    card: string;
-    text: string;
-    textSecondary: string;
-  };
-  style: {
-    borderRadius: string;
-    fontFamily: string;
-    cardStyle: string;
-    headerStyle: string;
-  };
+async function incrementViewCount(itemId: string) {
+  try {
+    await fetch(`/api/public/restaurants/${itemId}/view`, {
+      method: "POST",
+    });
+  } catch (error) {
+    console.error("Error incrementing view count:", error);
+  }
 }
 
-const themes: Record<string, MenuTheme> = {
-  clasico: {
-    id: "clasico",
-    name: "Clásico",
-    colors: {
-      primary: "#F84E93",
-      secondary: "#F179B6",
-      accent: "#FEDA00",
-      background: "#FFF1F7",
-      card: "#FFFFFF",
-      text: "#2E2E2E",
-      textSecondary: "#6A6A6A",
-    },
-    style: {
-      borderRadius: "rounded-xl",
-      fontFamily: "font-serif",
-      cardStyle: "shadow-md border",
-      headerStyle: "text-center",
-    },
+const themes = {
+  elegant: {
+    bg: "bg-gradient-to-br from-slate-50 to-gray-100",
+    card: "bg-white border-gray-200 shadow-sm",
+    text: "text-gray-900",
+    accent: "text-amber-600",
+    button: "bg-amber-600 hover:bg-amber-700 text-white",
   },
-  moderno: {
-    id: "moderno",
-    name: "Moderno",
-    colors: {
-      primary: "#6366F1",
-      secondary: "#8B5CF6",
-      accent: "#F59E0B",
-      background: "#F8FAFC",
-      card: "#FFFFFF",
-      text: "#1E293B",
-      textSecondary: "#64748B",
-    },
-    style: {
-      borderRadius: "rounded-2xl",
-      fontFamily: "font-sans",
-      cardStyle: "shadow-lg border-0",
-      headerStyle: "text-left",
-    },
+  modern: {
+    bg: "bg-gradient-to-br from-blue-50 to-indigo-100",
+    card: "bg-white border-blue-200 shadow-sm",
+    text: "text-gray-900",
+    accent: "text-blue-600",
+    button: "bg-blue-600 hover:bg-blue-700 text-white",
   },
-  elegante: {
-    id: "elegante",
-    name: "Elegante",
-    colors: {
-      primary: "#1F2937",
-      secondary: "#374151",
-      accent: "#D97706",
-      background: "#F9FAFB",
-      card: "#FFFFFF",
-      text: "#111827",
-      textSecondary: "#6B7280",
-    },
-    style: {
-      borderRadius: "rounded-lg",
-      fontFamily: "font-serif",
-      cardStyle: "shadow-sm border",
-      headerStyle: "text-center",
-    },
+  warm: {
+    bg: "bg-gradient-to-br from-orange-50 to-red-100",
+    card: "bg-white border-orange-200 shadow-sm",
+    text: "text-gray-900",
+    accent: "text-orange-600",
+    button: "bg-orange-600 hover:bg-orange-700 text-white",
   },
-  colorido: {
-    id: "colorido",
-    name: "Colorido",
-    colors: {
-      primary: "#EC4899",
-      secondary: "#F472B6",
-      accent: "#10B981",
-      background: "#FEF7FF",
-      card: "#FFFFFF",
-      text: "#1F2937",
-      textSecondary: "#6B7280",
-    },
-    style: {
-      borderRadius: "rounded-3xl",
-      fontFamily: "font-sans",
-      cardStyle: "shadow-xl border-2",
-      headerStyle: "text-center",
-    },
+  fresh: {
+    bg: "bg-gradient-to-br from-green-50 to-emerald-100",
+    card: "bg-white border-green-200 shadow-sm",
+    text: "text-gray-900",
+    accent: "text-green-600",
+    button: "bg-green-600 hover:bg-green-700 text-white",
   },
-  rustico: {
-    id: "rustico",
-    name: "Rústico",
-    colors: {
-      primary: "#92400E",
-      secondary: "#B45309",
-      accent: "#059669",
-      background: "#FFFBEB",
-      card: "#FFFFFF",
-      text: "#1C1917",
-      textSecondary: "#78716C",
-    },
-    style: {
-      borderRadius: "rounded-lg",
-      fontFamily: "font-serif",
-      cardStyle: "shadow-md border-2",
-      headerStyle: "text-left",
-    },
-  },
-  premium: {
-    id: "premium",
-    name: "Premium",
-    colors: {
-      primary: "#7C3AED",
-      secondary: "#8B5CF6",
-      accent: "#F59E0B",
-      background: "#FAFAFA",
-      card: "#FFFFFF",
-      text: "#18181B",
-      textSecondary: "#71717A",
-    },
-    style: {
-      borderRadius: "rounded-2xl",
-      fontFamily: "font-sans",
-      cardStyle: "shadow-2xl border-0",
-      headerStyle: "text-center",
-    },
+  dark: {
+    bg: "bg-gradient-to-br from-gray-900 to-black",
+    card: "bg-gray-800 border-gray-700 shadow-lg",
+    text: "text-white",
+    accent: "text-purple-400",
+    button: "bg-purple-600 hover:bg-purple-700 text-white",
   },
 };
 
-export default function RestaurantMenuPage() {
-  const params = useParams();
-  const restaurantSlug = params.restaurantSlug as string;
+export default async function RestaurantPage({
+  params,
+}: {
+  params: { restaurantSlug: string };
+}) {
+  const { restaurantSlug } = params;
 
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const data = await getRestaurantData(restaurantSlug);
 
-  // Cargar datos del restaurante desde la API
-  useEffect(() => {
-    const loadRestaurantData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await fetch(
-          `/api/public/restaurants/${restaurantSlug}`
-        );
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError("Restaurante no encontrado");
-          } else {
-            setError("Error al cargar el menú");
-          }
-          return;
-        }
-
-        const data = await response.json();
-        setRestaurant(data.restaurant);
-      } catch (err) {
-        console.error("Error loading restaurant:", err);
-        setError("Error al cargar el menú");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (restaurantSlug) {
-      loadRestaurantData();
-    }
-  }, [restaurantSlug]);
-
-  // Cargar favoritos del localStorage
-  useEffect(() => {
-    const savedFavorites = localStorage.getItem(`favorites-${restaurantSlug}`);
-    if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites));
-    }
-  }, [restaurantSlug]);
-
-  const toggleFavorite = (itemId: string) => {
-    const newFavorites = favorites.includes(itemId)
-      ? favorites.filter((id) => id !== itemId)
-      : [...favorites, itemId];
-
-    setFavorites(newFavorites);
-    localStorage.setItem(
-      `favorites-${restaurantSlug}`,
-      JSON.stringify(newFavorites)
-    );
-  };
-
-  const shareItem = async (item: MenuItem) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${item.name} - ${restaurant?.name}`,
-          text: `${item.description} - $${item.price}`,
-          url: window.location.href,
-        });
-      } catch (error) {
-        console.log("Error sharing:", error);
-      }
-    } else {
-      // Fallback para navegadores que no soportan Web Share API
-      navigator.clipboard.writeText(
-        `${item.name} - ${item.description} - $${item.price} | ${window.location.href}`
-      );
-    }
-  };
-
-  const handleItemClick = async (item: MenuItem) => {
-    setSelectedItem(item);
-
-    // Registrar vista del item
-    try {
-      await fetch(
-        `/api/public/restaurants/${restaurantSlug}/items/${item.id}/view`,
-        {
-          method: "POST",
-        }
-      );
-    } catch (error) {
-      console.error("Error tracking item view:", error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-16 h-16 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600">Cargando menú...</p>
-        </div>
-      </div>
-    );
+  if (!data || !data.restaurant) {
+    notFound();
   }
 
-  if (error || !restaurant) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="text-center p-8">
-            <div className="text-6xl mb-4">🍽️</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              {error || "Restaurante no encontrado"}
-            </h2>
-            <p className="text-gray-600 mb-4">
-              No pudimos encontrar el menú que buscas. Verifica la URL o
-              contacta al restaurante.
-            </p>
-            <Button
-              onClick={() => window.history.back()}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const { restaurant, categories, menuItems } = data;
 
-  const theme = themes[restaurant.theme] || themes.clasico;
+  console.log({ restaurant });
 
-  const filteredItems = restaurant.menu_categories.flatMap((category) =>
-    category.menu_items.filter((item) => {
-      const matchesSearch =
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.description &&
-          item.description.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesCategory =
-        selectedCategory === "all" || category.id === selectedCategory;
-      return matchesSearch && matchesCategory && item.is_available;
-    })
-  );
+  const theme =
+    themes[restaurant.theme as keyof typeof themes] || themes.elegant;
 
-  const featuredItems = restaurant.menu_categories.flatMap((category) =>
-    category.menu_items.filter((item) => item.is_featured && item.is_available)
-  );
+  const itemsByCategory = menuItems.reduce((acc, item) => {
+    if (!acc[item.category_id]) {
+      acc[item.category_id] = [];
+    }
+    acc[item.category_id].push(item);
+    return acc;
+  }, {} as Record<string, MenuItem[]>);
 
   return (
-    <div
-      className={`min-h-screen ${theme.style.fontFamily}`}
-      style={{
-        backgroundColor: theme.colors.background,
-        color: theme.colors.text,
-      }}
-    >
-      {/* Header del Restaurante */}
-      <header
-        className="sticky top-0 z-50 backdrop-blur-md border-b"
-        style={{
-          backgroundColor: `${theme.colors.card}95`,
-          borderColor: theme.colors.primary + "30",
-        }}
-      >
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h1
-                className={`text-xl font-bold ${theme.style.headerStyle}`}
-                style={{ color: theme.colors.text }}
-              >
-                {restaurant.name}
-              </h1>
-              <p
-                className="text-sm"
-                style={{ color: theme.colors.textSecondary }}
-              >
-                menudata.com/{restaurant.slug}
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                style={{ color: theme.colors.primary }}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.history.back()}
-                style={{ color: theme.colors.primary }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </div>
+    <div className={`min-h-screen ${theme.bg}`}>
+      {/* Header del restaurante */}
+      <div className="relative">
+        <div className="relative px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <Card className={`${theme.card} p-6`}>
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                {restaurant.logo_url && (
+                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-white shadow-lg flex-shrink-0">
+                    <Image
+                      src={restaurant.logo_url || "/placeholder.svg"}
+                      alt={`Logo de ${restaurant.name}`}
+                      width={96}
+                      height={96}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
+                <div className="flex-1">
+                  <h1
+                    className={`text-3xl md:text-4xl font-bold ${theme.text} mb-2`}
+                  >
+                    {restaurant.name}
+                  </h1>
+
+                  {restaurant.description && (
+                    <p className={`text-lg ${theme.text} opacity-80 mb-4`}>
+                      {restaurant.description}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    {restaurant.address && (
+                      <div
+                        className={`flex items-center gap-2 ${theme.accent}`}
+                      >
+                        <MapPin className="h-4 w-4" />
+                        <span>{restaurant.address}</span>
+                      </div>
+                    )}
+
+                    {restaurant.phone && (
+                      <div
+                        className={`flex items-center gap-2 ${theme.accent}`}
+                      >
+                        <Phone className="h-4 w-4" />
+                        <span>{restaurant.phone}</span>
+                      </div>
+                    )}
+
+                    {restaurant.hours && (
+                      <div
+                        className={`flex items-center gap-2 ${theme.accent}`}
+                      >
+                        <Clock className="h-4 w-4" />
+                        <span>{restaurant.hours}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Información del Restaurante */}
-      <section className="container mx-auto px-4 py-6">
-        <Card
-          className={`${theme.style.cardStyle} ${theme.style.borderRadius} mb-6`}
-          style={{ backgroundColor: theme.colors.card }}
-        >
-          <CardContent className="p-6">
-            <div className="text-center mb-4">
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: theme.colors.text }}
-              >
-                {restaurant.name}
+      {/* Menú */}
+      <div className="max-w-4xl mx-auto px-4 pb-12">
+        {categories.length === 0 ? (
+          <Card className={`${theme.card} text-center py-12`}>
+            <CardContent>
+              <h2 className={`text-2xl font-bold ${theme.text} mb-4`}>
+                Menú en construcción
               </h2>
-              {restaurant.description && (
-                <p
-                  className="text-sm mb-4"
-                  style={{ color: theme.colors.textSecondary }}
-                >
-                  {restaurant.description}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              {restaurant.phone && (
-                <div className="flex items-center space-x-2">
-                  <Phone
-                    className="h-4 w-4"
-                    style={{ color: theme.colors.primary }}
-                  />
-                  <span style={{ color: theme.colors.textSecondary }}>
-                    {restaurant.phone}
-                  </span>
-                </div>
-              )}
-              {restaurant.address && (
-                <div className="flex items-center space-x-2">
-                  <MapPin
-                    className="h-4 w-4"
-                    style={{ color: theme.colors.primary }}
-                  />
-                  <span style={{ color: theme.colors.textSecondary }}>
-                    {restaurant.address}
-                  </span>
-                </div>
-              )}
-              {restaurant.hours && (
-                <div className="flex items-center space-x-2">
-                  <Clock
-                    className="h-4 w-4"
-                    style={{ color: theme.colors.primary }}
-                  />
-                  <span style={{ color: theme.colors.textSecondary }}>
-                    {restaurant.hours}
-                  </span>
-                </div>
-              )}
-              {restaurant.website && (
-                <div className="flex items-center space-x-2">
-                  <ExternalLink
-                    className="h-4 w-4"
-                    style={{ color: theme.colors.primary }}
-                  />
-                  <a
-                    href={`https://${restaurant.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    {restaurant.website}
-                  </a>
-                </div>
-              )}
-            </div>
-
-            {restaurant.features && (
-              <div
-                className="flex items-center justify-center space-x-4 mt-4 pt-4 border-t"
-                style={{ borderColor: theme.colors.primary + "20" }}
-              >
-                {restaurant.features.wifi && (
-                  <div
-                    className="flex items-center space-x-1 text-xs"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    <Wifi className="h-3 w-3" />
-                    <span>WiFi</span>
-                  </div>
-                )}
-                {restaurant.features.parking && (
-                  <div
-                    className="flex items-center space-x-1 text-xs"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    <Car className="h-3 w-3" />
-                    <span>Estacionamiento</span>
-                  </div>
-                )}
-                {restaurant.features.delivery && (
-                  <Badge
-                    className="text-xs"
-                    style={{
-                      backgroundColor: theme.colors.accent,
-                      color:
-                        theme.id === "premium" ? theme.colors.text : "#000000",
-                    }}
-                  >
-                    Delivery
-                  </Badge>
-                )}
-                {restaurant.features.takeaway && (
-                  <Badge
-                    className="text-xs"
-                    style={{
-                      backgroundColor: theme.colors.secondary,
-                      color:
-                        theme.id === "premium" ? theme.colors.text : "#000000",
-                    }}
-                  >
-                    Take Away
-                  </Badge>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Filtros y Búsqueda */}
-      {showFilters && (
-        <section className="container mx-auto px-4 pb-6">
-          <Card
-            className={`${theme.style.cardStyle} ${theme.style.borderRadius}`}
-            style={{ backgroundColor: theme.colors.card }}
-          >
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search
-                    className="absolute left-3 top-3 h-4 w-4"
-                    style={{ color: theme.colors.textSecondary }}
-                  />
-                  <Input
-                    placeholder="Buscar platos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.primary + "30",
-                      color: theme.colors.text,
-                    }}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={selectedCategory === "all" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedCategory("all")}
-                    style={{
-                      backgroundColor:
-                        selectedCategory === "all"
-                          ? theme.colors.primary
-                          : "transparent",
-                      borderColor: theme.colors.primary,
-                      color:
-                        selectedCategory === "all"
-                          ? "white"
-                          : theme.colors.primary,
-                    }}
-                  >
-                    Todos
-                  </Button>
-                  {restaurant.menu_categories.map((category) => (
-                    <Button
-                      key={category.id}
-                      variant={
-                        selectedCategory === category.id ? "default" : "outline"
-                      }
-                      size="sm"
-                      onClick={() => setSelectedCategory(category.id)}
-                      style={{
-                        backgroundColor:
-                          selectedCategory === category.id
-                            ? theme.colors.primary
-                            : "transparent",
-                        borderColor: theme.colors.primary,
-                        color:
-                          selectedCategory === category.id
-                            ? "white"
-                            : theme.colors.primary,
-                      }}
-                    >
-                      {category.icon} {category.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+              <p className={`${theme.text} opacity-70`}>
+                Estamos preparando nuestro delicioso menú. ¡Vuelve pronto!
+              </p>
             </CardContent>
           </Card>
-        </section>
-      )}
-
-      {/* Platos Destacados */}
-      {featuredItems.length > 0 &&
-        selectedCategory === "all" &&
-        !searchTerm && (
-          <section className="container mx-auto px-4 pb-6">
-            <h3
-              className="text-xl font-bold mb-4 flex items-center"
-              style={{ color: theme.colors.primary }}
-            >
-              <Star className="h-5 w-5 mr-2 fill-current" />
-              Platos Destacados
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {featuredItems.slice(0, 4).map((item) => (
-                <Card
-                  key={item.id}
-                  className={`${theme.style.cardStyle} ${theme.style.borderRadius} cursor-pointer hover:shadow-lg transition-all duration-200`}
-                  style={{ backgroundColor: theme.colors.card }}
-                  onClick={() => handleItemClick(item)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4
-                        className="font-medium text-lg"
-                        style={{ color: theme.colors.text }}
-                      >
-                        {item.name}
-                      </h4>
-                      <div className="flex items-center space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(item.id);
-                          }}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Heart
-                            className={`h-4 w-4 ${
-                              favorites.includes(item.id) ? "fill-current" : ""
-                            }`}
-                            style={{ color: theme.colors.accent }}
-                          />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            shareItem(item);
-                          }}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Share2
-                            className="h-4 w-4"
-                            style={{ color: theme.colors.primary }}
-                          />
-                        </Button>
-                      </div>
-                    </div>
-                    {item.description && (
-                      <p
-                        className="text-sm mb-3"
-                        style={{ color: theme.colors.textSecondary }}
-                      >
-                        {item.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <p
-                        className="font-bold text-xl"
-                        style={{ color: theme.colors.primary }}
-                      >
-                        ${item.price}
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        {item.rating > 0 && (
-                          <div className="flex items-center space-x-1">
-                            <Star
-                              className="h-4 w-4 fill-current"
-                              style={{ color: theme.colors.accent }}
-                            />
-                            <span
-                              className="text-sm"
-                              style={{ color: theme.colors.textSecondary }}
-                            >
-                              {item.rating}
-                            </span>
-                          </div>
-                        )}
-                        <Badge
-                          className="text-xs"
-                          style={{
-                            backgroundColor: theme.colors.accent,
-                            color:
-                              theme.id === "premium"
-                                ? theme.colors.text
-                                : "#000000",
-                          }}
-                        >
-                          Destacado
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-        )}
-
-      {/* Menú Principal */}
-      <section className="container mx-auto px-4 pb-8">
-        <Tabs
-          value={selectedCategory}
-          onValueChange={setSelectedCategory}
-          className="w-full"
-        >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-6">
-            <TabsTrigger value="all">Todos</TabsTrigger>
-            {restaurant.menu_categories.slice(0, 3).map((category) => (
-              <TabsTrigger
-                key={category.id}
-                value={category.id}
-                className="flex items-center space-x-1"
-              >
-                <span>{category.icon}</span>
-                <span className="hidden sm:inline">{category.name}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value="all">
-            <div className="space-y-6">
-              {searchTerm ? (
-                <div>
-                  <h3
-                    className="text-lg font-bold mb-4"
-                    style={{ color: theme.colors.primary }}
+        ) : (
+          <div className="space-y-8">
+            {categories.map((category) => (
+              <div key={category.id} className="mb-12">
+                <div className="mb-6">
+                  <h2
+                    className={`text-2xl md:text-3xl font-bold ${theme.text} mb-2`}
                   >
-                    Resultados de búsqueda ({filteredItems.length})
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredItems.map((item) => (
-                      <Card
-                        key={item.id}
-                        className={`${theme.style.cardStyle} ${theme.style.borderRadius} cursor-pointer hover:shadow-lg transition-all duration-200`}
-                        style={{ backgroundColor: theme.colors.card }}
-                        onClick={() => handleItemClick(item)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <h4
-                              className="font-medium"
-                              style={{ color: theme.colors.text }}
-                            >
-                              {item.name}
-                            </h4>
-                            <div className="flex items-center space-x-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFavorite(item.id);
-                                }}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Heart
-                                  className={`h-4 w-4 ${
-                                    favorites.includes(item.id)
-                                      ? "fill-current"
-                                      : ""
-                                  }`}
-                                  style={{ color: theme.colors.accent }}
-                                />
-                              </Button>
-                            </div>
-                          </div>
-                          {item.description && (
-                            <p
-                              className="text-sm mb-3"
-                              style={{ color: theme.colors.textSecondary }}
-                            >
-                              {item.description}
-                            </p>
-                          )}
-                          <div className="flex items-center justify-between">
-                            <p
-                              className="font-bold text-lg"
-                              style={{ color: theme.colors.primary }}
-                            >
-                              ${item.price}
-                            </p>
-                            {item.is_featured && (
-                              <Badge
-                                className="text-xs"
-                                style={{
-                                  backgroundColor: theme.colors.accent,
-                                  color:
-                                    theme.id === "premium"
-                                      ? theme.colors.text
-                                      : "#000000",
-                                }}
-                              >
-                                Destacado
-                              </Badge>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                    {category.name}
+                  </h2>
                 </div>
-              ) : (
-                restaurant.menu_categories.map((category) => (
-                  <div key={category.id}>
-                    <h3
-                      className="text-xl font-bold mb-4 flex items-center"
-                      style={{ color: theme.colors.primary }}
-                    >
-                      <span className="mr-2 text-2xl">{category.icon}</span>
-                      {category.name}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                      {category.menu_items
-                        .filter((item) => item.is_available)
-                        .map((item) => (
-                          <Card
-                            key={item.id}
-                            className={`${theme.style.cardStyle} ${theme.style.borderRadius} cursor-pointer hover:shadow-lg transition-all duration-200`}
-                            style={{ backgroundColor: theme.colors.card }}
-                            onClick={() => handleItemClick(item)}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex justify-between items-start mb-2">
-                                <h4
-                                  className="font-medium"
-                                  style={{ color: theme.colors.text }}
-                                >
-                                  {item.name}
-                                </h4>
-                                <div className="flex items-center space-x-1">
-                                  {item.is_featured && (
-                                    <Star
-                                      className="h-4 w-4 fill-current"
-                                      style={{ color: theme.colors.accent }}
-                                    />
-                                  )}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleFavorite(item.id);
-                                    }}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <Heart
-                                      className={`h-4 w-4 ${
-                                        favorites.includes(item.id)
-                                          ? "fill-current"
-                                          : ""
-                                      }`}
-                                      style={{ color: theme.colors.accent }}
-                                    />
-                                  </Button>
-                                </div>
-                              </div>
-                              {item.description && (
-                                <p
-                                  className="text-sm mb-3"
-                                  style={{ color: theme.colors.textSecondary }}
-                                >
-                                  {item.description}
-                                </p>
-                              )}
-                              <div className="flex items-center justify-between">
-                                <p
-                                  className="font-bold text-lg"
-                                  style={{ color: theme.colors.primary }}
-                                >
-                                  ${item.price}
-                                </p>
-                                <div className="flex items-center space-x-2">
-                                  {item.rating > 0 && (
-                                    <div className="flex items-center space-x-1">
-                                      <Star
-                                        className="h-4 w-4 fill-current"
-                                        style={{ color: theme.colors.accent }}
-                                      />
-                                      <span
-                                        className="text-sm"
-                                        style={{
-                                          color: theme.colors.textSecondary,
-                                        }}
-                                      >
-                                        {item.rating}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {item.is_featured && (
-                                    <Badge
-                                      className="text-xs"
-                                      style={{
-                                        backgroundColor: theme.colors.accent,
-                                        color:
-                                          theme.id === "premium"
-                                            ? theme.colors.text
-                                            : "#000000",
-                                      }}
-                                    >
-                                      Destacado
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </TabsContent>
 
-          {restaurant.menu_categories.map((category) => (
-            <TabsContent key={category.id} value={category.id}>
-              <div>
-                <h3
-                  className="text-xl font-bold mb-4 flex items-center"
-                  style={{ color: theme.colors.primary }}
-                >
-                  <span className="mr-2 text-2xl">{category.icon}</span>
-                  {category.name}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {category.menu_items
-                    .filter((item) => item.is_available)
-                    .map((item) => (
-                      <Card
-                        key={item.id}
-                        className={`${theme.style.cardStyle} ${theme.style.borderRadius} cursor-pointer hover:shadow-lg transition-all duration-200`}
-                        style={{ backgroundColor: theme.colors.card }}
-                        onClick={() => handleItemClick(item)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <h4
-                              className="font-medium"
-                              style={{ color: theme.colors.text }}
-                            >
-                              {item.name}
-                            </h4>
-                            <div className="flex items-center space-x-1">
-                              {item.is_featured && (
-                                <Star
-                                  className="h-4 w-4 fill-current"
-                                  style={{ color: theme.colors.accent }}
-                                />
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFavorite(item.id);
-                                }}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Heart
-                                  className={`h-4 w-4 ${
-                                    favorites.includes(item.id)
-                                      ? "fill-current"
-                                      : ""
-                                  }`}
-                                  style={{ color: theme.colors.accent }}
-                                />
-                              </Button>
-                            </div>
-                          </div>
-                          {item.description && (
-                            <p
-                              className="text-sm mb-3"
-                              style={{ color: theme.colors.textSecondary }}
-                            >
-                              {item.description}
-                            </p>
-                          )}
-                          <div className="flex items-center justify-between">
-                            <p
-                              className="font-bold text-lg"
-                              style={{ color: theme.colors.primary }}
-                            >
-                              ${item.price}
-                            </p>
-                            <div className="flex items-center space-x-2">
-                              {item.rating > 0 && (
-                                <div className="flex items-center space-x-1">
-                                  <Star
-                                    className="h-4 w-4 fill-current"
-                                    style={{ color: theme.colors.accent }}
-                                  />
-                                  <span
-                                    className="text-sm"
-                                    style={{
-                                      color: theme.colors.textSecondary,
-                                    }}
-                                  >
-                                    {item.rating}
-                                  </span>
-                                </div>
-                              )}
-                              {item.is_featured && (
-                                <Badge
-                                  className="text-xs"
-                                  style={{
-                                    backgroundColor: theme.colors.accent,
-                                    color:
-                                      theme.id === "premium"
-                                        ? theme.colors.text
-                                        : "#000000",
-                                  }}
-                                >
-                                  Destacado
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                <div className="grid gap-4 md:gap-6">
+                  <MenuItemList
+                    items={itemsByCategory[category.id] || []}
+                    theme={theme}
+                  />
                 </div>
               </div>
-            </TabsContent>
-          ))}
-        </Tabs>
-      </section>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
-      <footer
-        className="border-t py-8"
-        style={{
-          backgroundColor: theme.colors.card,
-          borderColor: theme.colors.primary + "20",
-        }}
-      >
-        <div className="container mx-auto px-4 text-center">
-          <p
-            className="text-sm mb-2"
-            style={{ color: theme.colors.textSecondary }}
-          >
-            Menú digital creado con
-          </p>
-          <div className="flex items-center justify-center space-x-2">
-            <div className="h-6 w-6 rounded bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">M</span>
-            </div>
-            <span className="font-bold" style={{ color: theme.colors.primary }}>
-              MenuData
-            </span>
-          </div>
-          <p
-            className="text-xs mt-2"
-            style={{ color: theme.colors.textSecondary }}
-          >
-            ¿Querés tu menú digital? Visitá menudata.com
+      <div className="border-t border-gray-200 bg-white/50 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto px-4 py-6 text-center">
+          <p className="text-sm text-gray-600">
+            Menú digital creado con{" "}
+            <span className="font-semibold text-orange-600">MenuData</span>
           </p>
         </div>
-      </footer>
-
-      {/* Modal de Detalle del Plato */}
-      <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-        <DialogContent className="max-w-md">
-          {selectedItem && (
-            <>
-              <DialogHeader>
-                <DialogTitle
-                  className="flex items-center justify-between"
-                  style={{ color: theme.colors.text }}
-                >
-                  <span>{selectedItem.name}</span>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleFavorite(selectedItem.id)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Heart
-                        className={`h-4 w-4 ${
-                          favorites.includes(selectedItem.id)
-                            ? "fill-current"
-                            : ""
-                        }`}
-                        style={{ color: theme.colors.accent }}
-                      />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => shareItem(selectedItem)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Share2
-                        className="h-4 w-4"
-                        style={{ color: theme.colors.primary }}
-                      />
-                    </Button>
-                  </div>
-                </DialogTitle>
-                {selectedItem.description && (
-                  <DialogDescription
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    {selectedItem.description}
-                  </DialogDescription>
-                )}
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p
-                    className="text-2xl font-bold"
-                    style={{ color: theme.colors.primary }}
-                  >
-                    ${selectedItem.price}
-                  </p>
-                  <div className="flex items-center space-x-2">
-                    {selectedItem.rating > 0 && (
-                      <div className="flex items-center space-x-1">
-                        <Star
-                          className="h-4 w-4 fill-current"
-                          style={{ color: theme.colors.accent }}
-                        />
-                        <span style={{ color: theme.colors.textSecondary }}>
-                          {selectedItem.rating}
-                        </span>
-                      </div>
-                    )}
-                    {selectedItem.is_featured && (
-                      <Badge
-                        style={{
-                          backgroundColor: theme.colors.accent,
-                          color:
-                            theme.id === "premium"
-                              ? theme.colors.text
-                              : "#000000",
-                        }}
-                      >
-                        Destacado
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                {selectedItem.ingredients &&
-                  selectedItem.ingredients.length > 0 && (
-                    <div>
-                      <h4
-                        className="font-medium mb-2"
-                        style={{ color: theme.colors.text }}
-                      >
-                        Ingredientes:
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedItem.ingredients.map((ingredient, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            style={{
-                              borderColor: theme.colors.primary,
-                              color: theme.colors.primary,
-                            }}
-                          >
-                            {ingredient}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                {selectedItem.allergens &&
-                  selectedItem.allergens.length > 0 && (
-                    <div>
-                      <h4
-                        className="font-medium mb-2"
-                        style={{ color: theme.colors.text }}
-                      >
-                        Alérgenos:
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedItem.allergens.map((allergen, index) => (
-                          <Badge
-                            key={index}
-                            style={{
-                              backgroundColor: theme.colors.accent + "20",
-                              color: theme.colors.text,
-                            }}
-                          >
-                            ⚠️ {allergen}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                <Separator
-                  style={{ backgroundColor: theme.colors.primary + "20" }}
-                />
-
-                <div className="text-center">
-                  <p
-                    className="text-sm"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    {selectedItem.views} personas vieron este plato
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      </div>
     </div>
   );
 }

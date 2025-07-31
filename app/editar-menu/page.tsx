@@ -32,6 +32,7 @@ import {
   Edit,
   Eye,
   GripVertical,
+  Loader2,
   Palette,
   Plus,
   RefreshCw,
@@ -43,6 +44,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface MenuItem {
@@ -50,19 +52,48 @@ interface MenuItem {
   name: string;
   description: string;
   price: number;
-  category: string;
-  featured: boolean;
-  available: boolean;
-  image?: string;
+  category_id: string;
+  is_featured: boolean;
+  is_available: boolean;
+  image_url?: string;
   views?: number;
   rating?: number;
+  ingredients?: string[];
+  allergens?: string[];
 }
 
 interface MenuCategory {
   id: string;
   name: string;
   icon: string;
-  items: MenuItem[];
+  sort_order: number;
+  menu_items: MenuItem[];
+}
+
+interface Restaurant {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  phone: string | null;
+  address: string | null;
+  hours: string | null;
+  website: string | null;
+  theme:
+    | "clasico"
+    | "moderno"
+    | "elegante"
+    | "colorido"
+    | "rustico"
+    | "premium";
+  logo_url: string | null;
+  features: {
+    wifi: boolean;
+    parking: boolean;
+    delivery: boolean;
+    takeaway: boolean;
+  } | null;
+  menu_categories: MenuCategory[];
 }
 
 interface MenuTheme {
@@ -115,18 +146,18 @@ const menuThemes: MenuTheme[] = [
     description: "Minimalista y contemporáneo",
     preview: "✨",
     colors: {
-      primary: "#000000",
-      secondary: "#333333",
-      accent: "#FF6B6B",
-      background: "#FFFFFF",
-      card: "#F8F9FA",
-      text: "#000000",
-      textSecondary: "#666666",
+      primary: "#6366F1",
+      secondary: "#8B5CF6",
+      accent: "#F59E0B",
+      background: "#F8FAFC",
+      card: "#FFFFFF",
+      text: "#1E293B",
+      textSecondary: "#64748B",
     },
     style: {
-      borderRadius: "rounded-none",
+      borderRadius: "rounded-2xl",
       fontFamily: "font-sans",
-      cardStyle: "border-l-4 border-l-black",
+      cardStyle: "shadow-lg border-0",
       headerStyle: "text-left",
     },
   },
@@ -136,19 +167,19 @@ const menuThemes: MenuTheme[] = [
     description: "Sofisticado y premium",
     preview: "💎",
     colors: {
-      primary: "#1A1A1A",
-      secondary: "#8B7355",
-      accent: "#D4AF37",
-      background: "#F5F5F0",
+      primary: "#1F2937",
+      secondary: "#374151",
+      accent: "#D97706",
+      background: "#F9FAFB",
       card: "#FFFFFF",
-      text: "#1A1A1A",
-      textSecondary: "#8B7355",
+      text: "#111827",
+      textSecondary: "#6B7280",
     },
     style: {
       borderRadius: "rounded-lg",
       fontFamily: "font-serif",
-      cardStyle: "shadow-lg border-2 border-gray-100",
-      headerStyle: "text-center border-b-2 border-gray-200 pb-2",
+      cardStyle: "shadow-sm border",
+      headerStyle: "text-center",
     },
   },
   {
@@ -157,21 +188,19 @@ const menuThemes: MenuTheme[] = [
     description: "Vibrante y divertido",
     preview: "🌈",
     colors: {
-      primary: "#FF6B6B",
-      secondary: "#4ECDC4",
-      accent: "#45B7D1",
-      background: "#FFF8E1",
+      primary: "#EC4899",
+      secondary: "#F472B6",
+      accent: "#10B981",
+      background: "#FEF7FF",
       card: "#FFFFFF",
-      text: "#2C3E50",
-      textSecondary: "#7F8C8D",
+      text: "#1F2937",
+      textSecondary: "#6B7280",
     },
     style: {
-      borderRadius: "rounded-2xl",
+      borderRadius: "rounded-3xl",
       fontFamily: "font-sans",
-      cardStyle:
-        "shadow-xl border-2 border-transparent bg-gradient-to-br from-white to-gray-50",
-      headerStyle:
-        "text-center bg-gradient-to-r from-pink-500 to-blue-500 text-white rounded-t-2xl p-4 -m-6 mb-4",
+      cardStyle: "shadow-xl border-2",
+      headerStyle: "text-center",
     },
   },
   {
@@ -180,20 +209,19 @@ const menuThemes: MenuTheme[] = [
     description: "Cálido y tradicional",
     preview: "🏕️",
     colors: {
-      primary: "#8B4513",
-      secondary: "#D2691E",
-      accent: "#CD853F",
-      background: "#FDF5E6",
-      card: "#FFFAF0",
-      text: "#654321",
-      textSecondary: "#8B7355",
+      primary: "#92400E",
+      secondary: "#B45309",
+      accent: "#059669",
+      background: "#FFFBEB",
+      card: "#FFFFFF",
+      text: "#1C1917",
+      textSecondary: "#78716C",
     },
     style: {
       borderRadius: "rounded-lg",
       fontFamily: "font-serif",
-      cardStyle:
-        "shadow-md border-2 border-amber-200 bg-gradient-to-b from-amber-50 to-orange-50",
-      headerStyle: "text-center border-b-2 border-amber-300 pb-2",
+      cardStyle: "shadow-md border-2",
+      headerStyle: "text-left",
     },
   },
   {
@@ -202,26 +230,32 @@ const menuThemes: MenuTheme[] = [
     description: "Lujo y exclusividad",
     preview: "👑",
     colors: {
-      primary: "#000000",
-      secondary: "#FFD700",
-      accent: "#C0C0C0",
-      background: "#0A0A0A",
-      card: "#1A1A1A",
-      text: "#FFFFFF",
-      textSecondary: "#CCCCCC",
+      primary: "#7C3AED",
+      secondary: "#8B5CF6",
+      accent: "#F59E0B",
+      background: "#FAFAFA",
+      card: "#FFFFFF",
+      text: "#18181B",
+      textSecondary: "#71717A",
     },
     style: {
-      borderRadius: "rounded-xl",
-      fontFamily: "font-serif",
-      cardStyle:
-        "shadow-2xl border border-gray-800 bg-gradient-to-b from-gray-900 to-black",
-      headerStyle: "text-center border-b border-gray-700 pb-4",
+      borderRadius: "rounded-2xl",
+      fontFamily: "font-sans",
+      cardStyle: "shadow-2xl border-0",
+      headerStyle: "text-center",
     },
   },
 ];
 
 export default function EditarMenuPage() {
-  const [restaurantName, setRestaurantName] = useState("La Pizzería de Mario");
+  const { data: session } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const restaurantId = searchParams.get("id");
+
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<MenuTheme>(menuThemes[0]);
   const [showPreview, setShowPreview] = useState(false);
   const [draggedItem, setDraggedItem] = useState<MenuItem | null>(null);
@@ -231,117 +265,57 @@ export default function EditarMenuPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
 
-  // Datos de ejemplo del menú existente
-  const [categories, setCategories] = useState<MenuCategory[]>([
-    {
-      id: "entradas",
-      name: "Entradas",
-      icon: "🍕",
-      items: [
-        {
-          id: "1",
-          name: "Pizza Margherita",
-          description: "Tomate, mozzarella, albahaca fresca",
-          price: 2500,
-          category: "entradas",
-          featured: true,
-          available: true,
-          views: 156,
-          rating: 4.8,
-        },
-        {
-          id: "2",
-          name: "Empanadas Criollas",
-          description: "Carne cortada a cuchillo, cebolla, huevo",
-          price: 800,
-          category: "entradas",
-          featured: false,
-          available: true,
-          views: 89,
-          rating: 4.5,
-        },
-      ],
-    },
-    {
-      id: "principales",
-      name: "Principales",
-      icon: "🥘",
-      items: [
-        {
-          id: "3",
-          name: "Milanesa Napolitana",
-          description: "Con papas fritas caseras",
-          price: 3200,
-          category: "principales",
-          featured: true,
-          available: true,
-          views: 234,
-          rating: 4.9,
-        },
-        {
-          id: "4",
-          name: "Bife de Chorizo",
-          description: "Con ensalada mixta",
-          price: 4500,
-          category: "principales",
-          featured: false,
-          available: false,
-          views: 67,
-          rating: 4.7,
-        },
-      ],
-    },
-    {
-      id: "postres",
-      name: "Postres",
-      icon: "🍰",
-      items: [
-        {
-          id: "5",
-          name: "Tiramisu Casero",
-          description: "Receta tradicional italiana",
-          price: 1800,
-          category: "postres",
-          featured: false,
-          available: true,
-          views: 123,
-          rating: 4.6,
-        },
-      ],
-    },
-    {
-      id: "bebidas",
-      name: "Bebidas",
-      icon: "🥤",
-      items: [
-        {
-          id: "6",
-          name: "Agua Mineral",
-          description: "500ml",
-          price: 500,
-          category: "bebidas",
-          featured: false,
-          available: true,
-          views: 45,
-          rating: 4.2,
-        },
-      ],
-    },
-  ]);
-
   const [newItem, setNewItem] = useState<Partial<MenuItem>>({
     name: "",
     description: "",
     price: 0,
-    category: "entradas",
-    featured: false,
-    available: true,
+    category_id: "",
+    is_featured: false,
+    is_available: true,
   });
+
+  // Cargar datos del restaurante
+  useEffect(() => {
+    const loadRestaurant = async () => {
+      if (!restaurantId || !session?.accessToken) return;
+
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/restaurants/${restaurantId}`, {
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Error al cargar el restaurante");
+        }
+
+        const data = await response.json();
+        setRestaurant(data.restaurant);
+
+        // Establecer el tema actual
+        const currentTheme =
+          menuThemes.find((t) => t.id === data.restaurant.theme) ||
+          menuThemes[0];
+        setSelectedTheme(currentTheme);
+      } catch (error) {
+        console.error("Error loading restaurant:", error);
+        router.push("/admin");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRestaurant();
+  }, [restaurantId, session, router]);
 
   // Marcar cambios no guardados
   useEffect(() => {
-    setHasUnsavedChanges(true);
-  }, [categories, restaurantName, selectedTheme]);
+    if (restaurant) {
+      setHasUnsavedChanges(true);
+    }
+  }, [restaurant, selectedTheme]);
 
   const handleDragStart = (item: MenuItem) => {
     setDraggedItem(item);
@@ -351,121 +325,250 @@ export default function EditarMenuPage() {
     e.preventDefault();
   };
 
-  const handleDrop = (e: React.DragEvent, targetCategoryId: string) => {
+  const handleDrop = async (e: React.DragEvent, targetCategoryId: string) => {
     e.preventDefault();
-    if (!draggedItem) return;
+    if (!draggedItem || !session?.accessToken) return;
 
-    setCategories((prev) =>
-      prev.map((category) => {
-        if (category.id === draggedItem.category) {
-          return {
-            ...category,
-            items: category.items.filter((item) => item.id !== draggedItem.id),
-          };
+    try {
+      // Actualizar en la base de datos
+      const response = await fetch(
+        `/api/restaurants/${restaurant?.id}/categories/${draggedItem.category_id}/items/${draggedItem.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify({
+            category_id: targetCategoryId,
+          }),
         }
-        if (category.id === targetCategoryId) {
-          return {
-            ...category,
-            items: [
-              ...category.items,
-              { ...draggedItem, category: targetCategoryId },
-            ],
-          };
-        }
-        return category;
-      })
-    );
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al mover el item");
+      }
+
+      // Actualizar el estado local
+      setRestaurant((prev) => {
+        if (!prev) return prev;
+
+        const updatedCategories = prev.menu_categories.map((category) => {
+          if (category.id === draggedItem.category_id) {
+            return {
+              ...category,
+              menu_items: category.menu_items.filter(
+                (item) => item.id !== draggedItem.id
+              ),
+            };
+          }
+          if (category.id === targetCategoryId) {
+            return {
+              ...category,
+              menu_items: [
+                ...category.menu_items,
+                { ...draggedItem, category_id: targetCategoryId },
+              ],
+            };
+          }
+          return category;
+        });
+
+        return { ...prev, menu_categories: updatedCategories };
+      });
+    } catch (error) {
+      console.error("Error moving item:", error);
+    }
+
     setDraggedItem(null);
   };
 
-  const handleSaveItem = () => {
-    if (editingItem) {
-      setCategories((prev) =>
-        prev.map((category) => ({
+  const handleSaveItem = async () => {
+    if (!editingItem || !session?.accessToken) return;
+
+    try {
+      const response = await fetch(
+        `/api/restaurants/${restaurant?.id}/categories/${editingItem.category_id}/items/${editingItem.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify({
+            name: editingItem.name,
+            description: editingItem.description,
+            price: editingItem.price,
+            is_featured: editingItem.is_featured,
+            is_available: editingItem.is_available,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al actualizar el item");
+      }
+
+      // Actualizar el estado local
+      setRestaurant((prev) => {
+        if (!prev) return prev;
+
+        const updatedCategories = prev.menu_categories.map((category) => ({
           ...category,
-          items: category.items.map((item) =>
+          menu_items: category.menu_items.map((item) =>
             item.id === editingItem.id ? editingItem : item
           ),
-        }))
-      );
+        }));
+
+        return { ...prev, menu_categories: updatedCategories };
+      });
+
       setEditingItem(null);
+    } catch (error) {
+      console.error("Error saving item:", error);
     }
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (
-      newItem.name &&
-      newItem.description &&
-      newItem.price &&
-      newItem.category
-    ) {
-      const item: MenuItem = {
-        id: Date.now().toString(),
-        name: newItem.name,
-        description: newItem.description,
-        price: newItem.price,
-        category: newItem.category,
-        featured: newItem.featured || false,
-        available: newItem.available || true,
-        views: 0,
-        rating: 0,
-      };
+      !newItem.name ||
+      !newItem.description ||
+      !newItem.price ||
+      !newItem.category_id ||
+      !session?.accessToken
+    )
+      return;
 
-      setCategories((prev) =>
-        prev.map((category) =>
-          category.id === item.category
-            ? { ...category, items: [...category.items, item] }
-            : category
-        )
+    try {
+      const response = await fetch(
+        `/api/restaurants/${restaurant?.id}/categories/${newItem.category_id}/items`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify({
+            name: newItem.name,
+            description: newItem.description,
+            price: newItem.price,
+            is_featured: newItem.is_featured || false,
+            is_available: newItem.is_available !== false,
+          }),
+        }
       );
+
+      if (!response.ok) {
+        throw new Error("Error al crear el item");
+      }
+
+      const data = await response.json();
+      const createdItem = data.item;
+
+      // Actualizar el estado local
+      setRestaurant((prev) => {
+        if (!prev) return prev;
+
+        const updatedCategories = prev.menu_categories.map((category) =>
+          category.id === newItem.category_id
+            ? { ...category, menu_items: [...category.menu_items, createdItem] }
+            : category
+        );
+
+        return { ...prev, menu_categories: updatedCategories };
+      });
 
       setNewItem({
         name: "",
         description: "",
         price: 0,
-        category: "entradas",
-        featured: false,
-        available: true,
+        category_id: "",
+        is_featured: false,
+        is_available: true,
       });
       setIsAddingItem(false);
+    } catch (error) {
+      console.error("Error adding item:", error);
     }
   };
 
-  const handleDeleteItem = (itemId: string) => {
-    setCategories((prev) =>
-      prev.map((category) => ({
-        ...category,
-        items: category.items.filter((item) => item.id !== itemId),
-      }))
-    );
+  const handleDeleteItem = async (itemId: string, categoryId: string) => {
+    if (!session?.accessToken) return;
+
+    try {
+      const response = await fetch(
+        `/api/restaurants/${restaurant?.id}/categories/${categoryId}/items/${itemId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al eliminar el item");
+      }
+
+      // Actualizar el estado local
+      setRestaurant((prev) => {
+        if (!prev) return prev;
+
+        const updatedCategories = prev.menu_categories.map((category) => ({
+          ...category,
+          menu_items: category.menu_items.filter((item) => item.id !== itemId),
+        }));
+
+        return { ...prev, menu_categories: updatedCategories };
+      });
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    }
   };
 
-  const handleSaveMenu = () => {
-    // Aquí iría la lógica para guardar en la base de datos
-    setHasUnsavedChanges(false);
-    setLastSaved(new Date());
-    // Mostrar notificación de éxito
-  };
+  const handleSaveMenu = async () => {
+    if (!restaurant || !session?.accessToken) return;
 
-  const totalItems = categories.reduce(
-    (acc, category) => acc + category.items.length,
-    0
-  );
-  const totalViews = categories.reduce(
-    (acc, category) =>
-      acc +
-      category.items.reduce((itemAcc, item) => itemAcc + (item.views || 0), 0),
-    0
-  );
-  const featuredItems = categories.reduce(
-    (acc, category) =>
-      acc + category.items.filter((item) => item.featured).length,
-    0
-  );
+    try {
+      setSaving(true);
+
+      // Actualizar información del restaurante
+      const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+        body: JSON.stringify({
+          name: restaurant.name,
+          description: restaurant.description,
+          phone: restaurant.phone,
+          address: restaurant.address,
+          hours: restaurant.hours,
+          website: restaurant.website,
+          theme: selectedTheme.id,
+          features: restaurant.features,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al guardar el menú");
+      }
+
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error("Error saving menu:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const renderMenuPreview = (theme: MenuTheme, isFullPreview = false) => {
-    const sampleCategories = categories
-      .filter((cat) => cat.items.length > 0)
+    if (!restaurant) return null;
+
+    const sampleCategories = restaurant.menu_categories
+      .filter((cat) => cat.menu_items.length > 0)
       .slice(0, isFullPreview ? 4 : 2);
 
     return (
@@ -486,7 +589,7 @@ export default function EditarMenuPage() {
               color: theme.id === "colorido" ? "white" : theme.colors.text,
             }}
           >
-            {restaurantName}
+            {restaurant.name}
           </h2>
           <p
             className={`text-sm mt-1 ${
@@ -499,7 +602,7 @@ export default function EditarMenuPage() {
                   : theme.colors.textSecondary,
             }}
           >
-            menudata.com/{restaurantName.toLowerCase().replace(/\s+/g, "-")}
+            menudata.com/{restaurant.slug}
           </p>
         </div>
 
@@ -513,9 +616,9 @@ export default function EditarMenuPage() {
               {category.name}
             </h3>
             <div className="space-y-3">
-              {category.items
-                .filter((item) => item.available)
-                .slice(0, isFullPreview ? category.items.length : 2)
+              {category.menu_items
+                .filter((item) => item.is_available)
+                .slice(0, isFullPreview ? category.menu_items.length : 2)
                 .map((item) => (
                   <div
                     key={item.id}
@@ -529,7 +632,7 @@ export default function EditarMenuPage() {
                       >
                         {item.name}
                       </h4>
-                      {item.featured && (
+                      {item.is_featured && (
                         <Star
                           className="h-4 w-4 fill-current"
                           style={{ color: theme.colors.accent }}
@@ -549,7 +652,7 @@ export default function EditarMenuPage() {
                       >
                         ${item.price}
                       </p>
-                      {item.featured && (
+                      {item.is_featured && (
                         <Badge
                           className="text-xs"
                           style={{
@@ -573,6 +676,61 @@ export default function EditarMenuPage() {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-brand-bg-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-16 h-16 animate-spin text-brand-primary-100 mx-auto mb-4" />
+          <p className="text-brand-text-100">Cargando editor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!restaurant) {
+    return (
+      <div className="min-h-screen bg-brand-bg-100 flex items-center justify-center">
+        <Card className="max-w-md w-full">
+          <CardContent className="text-center p-8">
+            <div className="text-6xl mb-4">🍽️</div>
+            <h2 className="text-2xl font-bold text-brand-text-200 mb-2">
+              Restaurante no encontrado
+            </h2>
+            <p className="text-brand-text-100 mb-4">
+              No se pudo cargar la información del restaurante.
+            </p>
+            <Button
+              onClick={() => router.push("/admin")}
+              className="bg-brand-primary-100 hover:bg-brand-primary-200 text-white"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver al Admin
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const totalItems = restaurant.menu_categories.reduce(
+    (acc, category) => acc + category.menu_items.length,
+    0
+  );
+  const totalViews = restaurant.menu_categories.reduce(
+    (acc, category) =>
+      acc +
+      category.menu_items.reduce(
+        (itemAcc, item) => itemAcc + (item.views || 0),
+        0
+      ),
+    0
+  );
+  const featuredItems = restaurant.menu_categories.reduce(
+    (acc, category) =>
+      acc + category.menu_items.filter((item) => item.is_featured).length,
+    0
+  );
+
   return (
     <div className="min-h-screen bg-brand-bg-100">
       {/* Header */}
@@ -581,11 +739,11 @@ export default function EditarMenuPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link
-                href="/"
+                href="/admin"
                 className="flex items-center space-x-2 text-brand-text-100 hover:text-brand-primary-100"
               >
                 <ArrowLeft className="h-5 w-5" />
-                <span>Volver al inicio</span>
+                <span>Volver al admin</span>
               </Link>
               <Separator orientation="vertical" className="h-6" />
               <div className="flex items-center space-x-2">
@@ -618,10 +776,15 @@ export default function EditarMenuPage() {
               </Button>
               <Button
                 onClick={handleSaveMenu}
+                disabled={saving}
                 className="bg-gradient-to-r from-brand-accent-100 to-brand-accent-200 hover:from-brand-accent-200 hover:to-brand-accent-100 text-white"
               >
-                <Save className="h-4 w-4 mr-2" />
-                Guardar Cambios
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {saving ? "Guardando..." : "Guardar Cambios"}
               </Button>
             </div>
           </div>
@@ -653,7 +816,7 @@ export default function EditarMenuPage() {
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-brand-text-200">
-                  {categories.length}
+                  {restaurant.menu_categories.length}
                 </p>
                 <p className="text-xs text-brand-text-100">Categorías</p>
               </div>
@@ -721,7 +884,7 @@ export default function EditarMenuPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-              {categories.map((category) => (
+              {restaurant.menu_categories.map((category) => (
                 <Card
                   key={category.id}
                   className="bg-white dark:bg-brand-primary-300/10 border-brand-bg-300"
@@ -735,13 +898,13 @@ export default function EditarMenuPage() {
                         <span>{category.name}</span>
                       </div>
                       <Badge className="bg-brand-bg-200 text-brand-text-200">
-                        {category.items.length}
+                        {category.menu_items.length}
                       </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3 min-h-[200px]">
-                      {category.items.map((item) => (
+                      {category.menu_items.map((item) => (
                         <div
                           key={item.id}
                           draggable
@@ -772,7 +935,9 @@ export default function EditarMenuPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleDeleteItem(item.id)}
+                                onClick={() =>
+                                  handleDeleteItem(item.id, item.category_id)
+                                }
                                 className="h-8 w-8 p-0 hover:bg-brand-primary-200/20 text-brand-primary-200"
                               >
                                 <Trash2 className="h-3 w-3" />
@@ -785,7 +950,7 @@ export default function EditarMenuPage() {
                               <span className="font-bold text-brand-primary-100">
                                 ${item.price}
                               </span>
-                              {item.featured && (
+                              {item.is_featured && (
                                 <Badge className="bg-brand-accent-100 text-brand-text-200 text-xs">
                                   <Star className="h-3 w-3 mr-1" />
                                   Destacado
@@ -811,23 +976,60 @@ export default function EditarMenuPage() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <Switch
-                                checked={item.available}
-                                onCheckedChange={(checked) => {
-                                  setCategories((prev) =>
-                                    prev.map((cat) => ({
-                                      ...cat,
-                                      items: cat.items.map((i) =>
-                                        i.id === item.id
-                                          ? { ...i, available: checked }
-                                          : i
-                                      ),
-                                    }))
-                                  );
+                                checked={item.is_available}
+                                onCheckedChange={async (checked) => {
+                                  if (!session?.accessToken) return;
+
+                                  try {
+                                    const response = await fetch(
+                                      `/api/restaurants/${restaurant.id}/categories/${item.category_id}/items/${item.id}`,
+                                      {
+                                        method: "PATCH",
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                          Authorization: `Bearer ${session.accessToken}`,
+                                        },
+                                        body: JSON.stringify({
+                                          is_available: checked,
+                                        }),
+                                      }
+                                    );
+
+                                    if (response.ok) {
+                                      setRestaurant((prev) => {
+                                        if (!prev) return prev;
+
+                                        const updatedCategories =
+                                          prev.menu_categories.map((cat) => ({
+                                            ...cat,
+                                            menu_items: cat.menu_items.map(
+                                              (i) =>
+                                                i.id === item.id
+                                                  ? {
+                                                      ...i,
+                                                      is_available: checked,
+                                                    }
+                                                  : i
+                                            ),
+                                          }));
+
+                                        return {
+                                          ...prev,
+                                          menu_categories: updatedCategories,
+                                        };
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error(
+                                      "Error updating availability:",
+                                      error
+                                    );
+                                  }
                                 }}
                                 className="scale-75"
                               />
                               <Label className="text-xs text-brand-text-100">
-                                {item.available
+                                {item.is_available
                                   ? "Disponible"
                                   : "No disponible"}
                               </Label>
@@ -836,7 +1038,7 @@ export default function EditarMenuPage() {
                         </div>
                       ))}
 
-                      {category.items.length === 0 && (
+                      {category.menu_items.length === 0 && (
                         <div className="text-center py-8 text-brand-text-100">
                           <p className="text-sm">
                             No hay platos en esta categoría
@@ -950,13 +1152,16 @@ export default function EditarMenuPage() {
                     </Label>
                     <Input
                       id="restaurant-name"
-                      value={restaurantName}
-                      onChange={(e) => setRestaurantName(e.target.value)}
+                      value={restaurant.name}
+                      onChange={(e) =>
+                        setRestaurant((prev) =>
+                          prev ? { ...prev, name: e.target.value } : null
+                        )
+                      }
                       className="mt-1"
                     />
                     <p className="text-sm text-brand-text-100 mt-1">
-                      URL: menudata.com/
-                      {restaurantName.toLowerCase().replace(/\s+/g, "-")}
+                      URL: menudata.com/{restaurant.slug}
                     </p>
                   </div>
                   <div>
@@ -968,6 +1173,12 @@ export default function EditarMenuPage() {
                     </Label>
                     <Textarea
                       id="description"
+                      value={restaurant.description || ""}
+                      onChange={(e) =>
+                        setRestaurant((prev) =>
+                          prev ? { ...prev, description: e.target.value } : null
+                        )
+                      }
                       placeholder="Describe tu restaurante..."
                       className="mt-1"
                       rows={3}
@@ -979,6 +1190,12 @@ export default function EditarMenuPage() {
                     </Label>
                     <Input
                       id="phone"
+                      value={restaurant.phone || ""}
+                      onChange={(e) =>
+                        setRestaurant((prev) =>
+                          prev ? { ...prev, phone: e.target.value } : null
+                        )
+                      }
                       placeholder="+54 9 11 1234-5678"
                       className="mt-1"
                     />
@@ -989,7 +1206,45 @@ export default function EditarMenuPage() {
                     </Label>
                     <Input
                       id="address"
+                      value={restaurant.address || ""}
+                      onChange={(e) =>
+                        setRestaurant((prev) =>
+                          prev ? { ...prev, address: e.target.value } : null
+                        )
+                      }
                       placeholder="Av. Corrientes 1234, CABA"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="hours" className="text-brand-text-200">
+                      Horarios
+                    </Label>
+                    <Input
+                      id="hours"
+                      value={restaurant.hours || ""}
+                      onChange={(e) =>
+                        setRestaurant((prev) =>
+                          prev ? { ...prev, hours: e.target.value } : null
+                        )
+                      }
+                      placeholder="Lun-Dom 12:00-23:00"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="website" className="text-brand-text-200">
+                      Sitio web
+                    </Label>
+                    <Input
+                      id="website"
+                      value={restaurant.website || ""}
+                      onChange={(e) =>
+                        setRestaurant((prev) =>
+                          prev ? { ...prev, website: e.target.value } : null
+                        )
+                      }
+                      placeholder="www.mirestaurante.com"
                       className="mt-1"
                     />
                   </div>
@@ -1067,7 +1322,11 @@ export default function EditarMenuPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-brand-text-200">
-                    {categories.filter((cat) => cat.items.length > 0).length}
+                    {
+                      restaurant.menu_categories.filter(
+                        (cat) => cat.menu_items.length > 0
+                      ).length
+                    }
                   </div>
                 </CardContent>
               </Card>
@@ -1081,8 +1340,8 @@ export default function EditarMenuPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {categories
-                    .flatMap((cat) => cat.items)
+                  {restaurant.menu_categories
+                    .flatMap((cat) => cat.menu_items)
                     .sort((a, b) => (b.views || 0) - (a.views || 0))
                     .slice(0, 5)
                     .map((item, index) => (
@@ -1187,16 +1446,16 @@ export default function EditarMenuPage() {
                   Categoría
                 </Label>
                 <Select
-                  value={newItem.category}
+                  value={newItem.category_id}
                   onValueChange={(value) =>
-                    setNewItem({ ...newItem, category: value })
+                    setNewItem({ ...newItem, category_id: value })
                   }
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
+                    {restaurant.menu_categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.icon} {category.name}
                       </SelectItem>
@@ -1207,9 +1466,9 @@ export default function EditarMenuPage() {
             </div>
             <div className="flex items-center space-x-2">
               <Switch
-                checked={newItem.featured}
+                checked={newItem.is_featured}
                 onCheckedChange={(checked) =>
-                  setNewItem({ ...newItem, featured: checked })
+                  setNewItem({ ...newItem, is_featured: checked })
                 }
               />
               <Label className="text-brand-text-200">
@@ -1218,9 +1477,9 @@ export default function EditarMenuPage() {
             </div>
             <div className="flex items-center space-x-2">
               <Switch
-                checked={newItem.available}
+                checked={newItem.is_available}
                 onCheckedChange={(checked) =>
-                  setNewItem({ ...newItem, available: checked })
+                  setNewItem({ ...newItem, is_available: checked })
                 }
               />
               <Label className="text-brand-text-200">Disponible</Label>
@@ -1305,9 +1564,9 @@ export default function EditarMenuPage() {
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
-                  checked={editingItem.featured}
+                  checked={editingItem.is_featured}
                   onCheckedChange={(checked) =>
-                    setEditingItem({ ...editingItem, featured: checked })
+                    setEditingItem({ ...editingItem, is_featured: checked })
                   }
                 />
                 <Label className="text-brand-text-200">
@@ -1316,9 +1575,9 @@ export default function EditarMenuPage() {
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
-                  checked={editingItem.available}
+                  checked={editingItem.is_available}
                   onCheckedChange={(checked) =>
-                    setEditingItem({ ...editingItem, available: checked })
+                    setEditingItem({ ...editingItem, is_available: checked })
                   }
                 />
                 <Label className="text-brand-text-200">Disponible</Label>
@@ -1386,9 +1645,10 @@ export default function EditarMenuPage() {
               <Button
                 size="sm"
                 onClick={handleSaveMenu}
+                disabled={saving}
                 className="bg-white text-brand-accent-100 hover:bg-gray-100 ml-2"
               >
-                Guardar ahora
+                {saving ? "Guardando..." : "Guardar ahora"}
               </Button>
             </AlertDescription>
           </Alert>

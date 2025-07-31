@@ -11,7 +11,8 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // En producción, aquí cargarías los datos del restaurante desde la API
-  const restaurantName = params.restaurantSlug.replace(/-/g, " ");
+  const { restaurantSlug } = await params;
+  const restaurantName = restaurantSlug.replace(/-/g, " ");
 
   return {
     title: `${restaurantName} - Menú Digital | MenuData`,

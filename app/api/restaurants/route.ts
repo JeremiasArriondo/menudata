@@ -1,25 +1,148 @@
-import type { NextRequest } from "next/server"
-import { getAuthenticatedUser, createApiResponse, createErrorResponse } from "@/lib/auth-middleware"
-import { restaurantSchema } from "@/lib/validations"
-import { supabase } from "@/lib/supabase"
-import { SubscriptionTracker } from "@/lib/subscription-tracking"
-import { z } from "zod" // Import zod for ZodError
+import { authenticateRequest } from "@/lib/auth-middleware";
+import { createClient } from "@supabase/supabase-js";
+import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-// GET - Obtener restaurantes del usuario
-export async function GET(request: NextRequest) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (authError || !user) {
-    return createErrorResponse("No autorizado", 401)
-  }
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-  if (!supabase) {
-    return createErrorResponse("Servicio no disponible", 503)
-  }
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+const createItemSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido"),
+  description: z.string().optional(),
+  price: z.number().min(0, "El precio debe ser mayor a 0"),
+  image_url: z.string().url().optional().or(z.literal("")),
+  is_available: z.boolean().default(true),
+  is_featured: z.boolean().default(false),
+  sort_order: z.number().default(0),
+});
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string; categoryId: string } }
+) {
   try {
+    const restaurantId = params.id;
+    const categoryId = params.categoryId;
+
+    console.log(
+      "Creating item for restaurant:",
+      restaurantId,
+      "category:",
+      categoryId
+    );
+
+    // Verificar autenticación
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Token requerido" }, { status: 401 });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    // Verificar token con Supabase
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      console.log("Auth error:", authError);
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
+
+    // Verificar que el restaurante pertenece al usuario
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from("restaurants")
+      .select("id, user_id")
+      .eq("id", restaurantId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (restaurantError || !restaurant) {
+      console.log("Restaurant error:", restaurantError);
+      return NextResponse.json(
+        { error: "Restaurante no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Verificar que la categoría pertenece al restaurante
+    const { data: category, error: categoryError } = await supabase
+      .from("menu_categories")
+      .select("id, restaurant_id")
+      .eq("id", categoryId)
+      .eq("restaurant_id", restaurantId)
+      .single();
+
+    if (categoryError || !category) {
+      console.log("Category error:", categoryError);
+      return NextResponse.json(
+        { error: "Categoría no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    const body = await request.json();
+    console.log("Request body:", body);
+
+    const validatedData = createItemSchema.parse(body);
+    console.log("Validated data:", validatedData);
+
+    // Crear el item
+    const { data: newItem, error: createError } = await supabase
+      .from("menu_items")
+      .insert({
+        restaurant_id: restaurantId, // Asegurar que se incluya
+        category_id: categoryId,
+        name: validatedData.name,
+        description: validatedData.description || null,
+        price: validatedData.price,
+        image_url: validatedData.image_url || null,
+        is_available: validatedData.is_available,
+        is_featured: validatedData.is_featured,
+        sort_order: validatedData.sort_order,
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error("Error creating item:", createError);
+      return NextResponse.json(
+        { error: "Error al crear el item", details: createError.message },
+        { status: 500 }
+      );
+    }
+
+    console.log("Item created successfully:", newItem);
+
+    return NextResponse.json(newItem, { status: 201 });
+  } catch (error) {
+    console.error("Error creating item:", error);
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Datos inválidos", details: error.errors },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const authResult = await authenticateRequest(request);
+    if ("error" in authResult) {
+      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    }
+
     const { data: restaurants, error } = await supabase
       .from("restaurants")
-      .select(`
+      .select(
+        `
         *,
         menu_categories (
           id,
@@ -33,117 +156,26 @@ export async function GET(request: NextRequest) {
             is_available
           )
         )
-      `)
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
+      `
+      )
+      .eq("owner_id", authResult.user.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching restaurants:", error)
-      return createErrorResponse("Error al obtener restaurantes", 500)
+      console.error("Error fetching restaurants:", error);
+      return NextResponse.json(
+        { error: "Error al obtener restaurantes" },
+        { status: 500 }
+      );
     }
 
-    // Log de actividad
-    await SubscriptionTracker.logUserActivity({
-      userId: user.id,
-      eventType: "restaurants_viewed",
-      eventCategory: "api",
-      description: "Usuario consultó sus restaurantes",
-    })
-
-    return createApiResponse({ restaurants: restaurants || [] })
+    return NextResponse.json({ restaurants });
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return createErrorResponse("Error interno del servidor", 500)
-  }
-}
-
-// POST - Crear nuevo restaurante
-export async function POST(request: NextRequest) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (authError || !user) {
-    return createErrorResponse("No autorizado", 401)
-  }
-
-  if (!supabase) {
-    return createErrorResponse("Servicio no disponible", 503)
-  }
-
-  try {
-    const body = await request.json()
-    const validatedData = restaurantSchema.parse(body)
-
-    // Verificar límites del plan
-    const limits = await SubscriptionTracker.checkPlanLimits(user.id, "restaurants")
-    if (!limits.withinLimits) {
-      return createErrorResponse(`Has alcanzado el límite de restaurantes (${limits.limit}) para tu plan actual`, 403)
-    }
-
-    // Verificar que el slug sea único
-    const { data: existingRestaurant } = await supabase
-      .from("restaurants")
-      .select("id")
-      .eq("slug", validatedData.slug)
-      .single()
-
-    if (existingRestaurant) {
-      return createErrorResponse("Este slug ya está en uso", 409)
-    }
-
-    // Crear el restaurante
-    const { data: restaurant, error } = await supabase
-      .from("restaurants")
-      .insert({
-        ...validatedData,
-        owner_id: user.id,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("Error creating restaurant:", error)
-      return createErrorResponse("Error al crear restaurante", 500)
-    }
-
-    // Crear categorías por defecto
-    const defaultCategories = [
-      { name: "Entradas", icon: "🥗", sort_order: 0 },
-      { name: "Platos Principales", icon: "🍽️", sort_order: 1 },
-      { name: "Postres", icon: "🍰", sort_order: 2 },
-      { name: "Bebidas", icon: "🥤", sort_order: 3 },
-    ]
-
-    const { error: categoriesError } = await supabase.from("menu_categories").insert(
-      defaultCategories.map((cat) => ({
-        ...cat,
-        restaurant_id: restaurant.id,
-      })),
-    )
-
-    if (categoriesError) {
-      console.error("Error creating default categories:", categoriesError)
-    }
-
-    // Log de actividad
-    await SubscriptionTracker.logUserActivity({
-      userId: user.id,
-      eventType: "restaurant_created",
-      eventCategory: "menu",
-      description: `Restaurante "${restaurant.name}" creado`,
-      resourceId: restaurant.id,
-      resourceType: "restaurant",
-      newValues: restaurant,
-    })
-
-    // Actualizar métricas
-    await SubscriptionTracker.updateUsageMetrics(user.id, "categories_created", restaurant.id, 4)
-
-    return createApiResponse({ restaurant }, 201)
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(`Datos inválidos: ${error.errors.map((e) => e.message).join(", ")}`, 400)
-    }
-
-    console.error("Unexpected error:", error)
-    return createErrorResponse("Error interno del servidor", 500)
+    console.error("Error in GET /api/restaurants:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
