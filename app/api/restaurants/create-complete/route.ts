@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
 
       // Crear los items de la categoría
       const itemsToInsert = category.items.map((item, itemIndex) => ({
+        restaurant_id: restaurant.id,
         category_id: createdCategory.id,
         name: item.name,
         description: item.description,
