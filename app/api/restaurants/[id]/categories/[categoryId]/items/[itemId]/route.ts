@@ -1,220 +1,215 @@
-import type { NextRequest } from "next/server"
-import { getAuthenticatedUser, createApiResponse, createErrorResponse } from "@/lib/auth-middleware"
-import { updateMenuItemSchema } from "@/lib/validations"
-import { supabase } from "@/lib/supabase"
-import { SubscriptionTracker } from "@/lib/subscription-tracking"
-import { z } from "zod" // Import zod for ZodError
+import { createClient } from "@supabase/supabase-js";
+import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-// GET - Obtener item específico
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string; categoryId: string; itemId: string } },
-) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (authError || !user) {
-    return createErrorResponse("No autorizado", 401)
-  }
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-  if (!supabase) {
-    return createErrorResponse("Servicio no disponible", 503)
-  }
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  try {
-    const { data: item, error } = await supabase
-      .from("menu_items")
-      .select(`
-        *,
-        menu_categories (
-          id,
-          name,
-          restaurants (
-            id,
-            name,
-            owner_id
-          )
-        )
-      `)
-      .eq("id", params.itemId)
-      .eq("restaurant_id", params.id)
-      .eq("category_id", params.categoryId)
-      .single()
+const updateItemSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido").optional(),
+  description: z.string().optional(),
+  price: z.number().min(0, "El precio debe ser mayor a 0").optional(),
+  image_url: z.string().url().optional().or(z.literal("")),
+  is_available: z.boolean().optional(),
+  is_featured: z.boolean().optional(),
+  sort_order: z.number().optional(),
+});
 
-    if (error || !item) {
-      return createErrorResponse("Item no encontrado", 404)
-    }
-
-    // Verificar que el restaurante pertenece al usuario
-    if (item.menu_categories?.restaurants?.owner_id !== user.id) {
-      return createErrorResponse("No autorizado", 403)
-    }
-
-    return createApiResponse({ item })
-  } catch (error) {
-    console.error("Unexpected error:", error)
-    return createErrorResponse("Error interno del servidor", 500)
-  }
-}
-
-// PUT - Actualizar item
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; categoryId: string; itemId: string } },
+  { params }: { params: { id: string; categoryId: string; itemId: string } }
 ) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (authError || !user) {
-    return createErrorResponse("No autorizado", 401)
-  }
-
-  if (!supabase) {
-    return createErrorResponse("Servicio no disponible", 503)
-  }
-
   try {
-    // Obtener datos actuales para verificación y log
-    const { data: currentItem } = await supabase
+    const restaurantId = params.id;
+    const categoryId = params.categoryId;
+    const itemId = params.itemId;
+
+    // Verificar autenticación
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Token requerido" }, { status: 401 });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    // Verificar token con Supabase
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
+
+    // Verificar que el item pertenece al usuario
+    const { data: item, error: itemError } = await supabase
       .from("menu_items")
-      .select(`
-        *,
-        menu_categories (
-          name,
-          restaurants (
-            id,
-            name,
-            owner_id
-          )
-        )
-      `)
-      .eq("id", params.itemId)
-      .eq("restaurant_id", params.id)
-      .eq("category_id", params.categoryId)
-      .single()
+      .select(
+        `
+        id,
+        restaurant_id,
+        category_id,
+        restaurants!inner(user_id)
+      `
+      )
+      .eq("id", itemId)
+      .eq("restaurant_id", restaurantId)
+      .eq("category_id", categoryId)
+      .eq("restaurants.user_id", user.id)
+      .single();
 
-    if (!currentItem) {
-      return createErrorResponse("Item no encontrado", 404)
+    if (itemError || !item) {
+      return NextResponse.json(
+        { error: "Item no encontrado" },
+        { status: 404 }
+      );
     }
 
-    // Verificar que el restaurante pertenece al usuario
-    if (currentItem.menu_categories?.restaurants?.owner_id !== user.id) {
-      return createErrorResponse("No autorizado", 403)
-    }
-
-    const body = await request.json()
-    const validatedData = updateMenuItemSchema.parse(body)
+    const body = await request.json();
+    const validatedData = updateItemSchema.parse(body);
 
     // Actualizar el item
-    const { data: item, error } = await supabase
+    const { data: updatedItem, error: updateError } = await supabase
       .from("menu_items")
       .update({
         ...validatedData,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.itemId)
-      .eq("restaurant_id", params.id)
-      .eq("category_id", params.categoryId)
+      .eq("id", itemId)
       .select()
-      .single()
+      .single();
 
-    if (error) {
-      console.error("Error updating menu item:", error)
-      return createErrorResponse("Error al actualizar item del menú", 500)
+    if (updateError) {
+      console.error("Error updating item:", updateError);
+      return NextResponse.json(
+        { error: "Error al actualizar el item" },
+        { status: 500 }
+      );
     }
 
-    // Log de actividad
-    await SubscriptionTracker.logUserActivity({
-      userId: user.id,
-      eventType: "menu_item_updated",
-      eventCategory: "menu",
-      description: `Item "${item.name}" actualizado`,
-      resourceId: item.id,
-      resourceType: "menu_item",
-      oldValues: currentItem,
-      newValues: item,
-    })
-
-    // Actualizar métricas
-    await SubscriptionTracker.updateUsageMetrics(user.id, "menu_items_updated", params.id)
-
-    return createApiResponse({ item })
+    return NextResponse.json(updatedItem);
   } catch (error) {
+    console.error("Error updating item:", error);
     if (error instanceof z.ZodError) {
-      return createErrorResponse(`Datos inválidos: ${error.errors.map((e) => e.message).join(", ")}`, 400)
+      return NextResponse.json(
+        { error: "Datos inválidos", details: error.errors },
+        { status: 400 }
+      );
     }
-
-    console.error("Unexpected error:", error)
-    return createErrorResponse("Error interno del servidor", 500)
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE - Eliminar item
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; categoryId: string; itemId: string } },
+  { params }: { params: { id: string; categoryId: string; itemId: string } }
 ) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (authError || !user) {
-    return createErrorResponse("No autorizado", 401)
-  }
-
-  if (!supabase) {
-    return createErrorResponse("Servicio no disponible", 503)
-  }
-
   try {
-    // Obtener datos del item antes de eliminar
-    const { data: item } = await supabase
-      .from("menu_items")
-      .select(`
-        *,
-        menu_categories (
-          name,
-          restaurants (
-            id,
-            name,
-            owner_id
-          )
-        )
-      `)
-      .eq("id", params.itemId)
-      .eq("restaurant_id", params.id)
-      .eq("category_id", params.categoryId)
-      .single()
+    const restaurantId = params.id;
+    const categoryId = params.categoryId;
+    const itemId = params.itemId;
 
-    if (!item) {
-      return createErrorResponse("Item no encontrado", 404)
+    // Verificar autenticación
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Token requerido" }, { status: 401 });
     }
 
-    // Verificar que el restaurante pertenece al usuario
-    if (item.menu_categories?.restaurants?.owner_id !== user.id) {
-      return createErrorResponse("No autorizado", 403)
+    const token = authHeader.split(" ")[1];
+
+    // Verificar token con Supabase
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
+
+    // Verificar que el item pertenece al usuario
+    const { data: item, error: itemError } = await supabase
+      .from("menu_items")
+      .select(
+        `
+        id,
+        restaurant_id,
+        category_id,
+        restaurants!inner(user_id)
+      `
+      )
+      .eq("id", itemId)
+      .eq("restaurant_id", restaurantId)
+      .eq("category_id", categoryId)
+      .eq("restaurants.user_id", user.id)
+      .single();
+
+    if (itemError || !item) {
+      return NextResponse.json(
+        { error: "Item no encontrado" },
+        { status: 404 }
+      );
     }
 
     // Eliminar el item
-    const { error } = await supabase
+    const { error: deleteError } = await supabase
       .from("menu_items")
       .delete()
-      .eq("id", params.itemId)
-      .eq("restaurant_id", params.id)
-      .eq("category_id", params.categoryId)
+      .eq("id", itemId);
 
-    if (error) {
-      console.error("Error deleting menu item:", error)
-      return createErrorResponse("Error al eliminar item del menú", 500)
+    if (deleteError) {
+      console.error("Error deleting item:", deleteError);
+      return NextResponse.json(
+        { error: "Error al eliminar el item" },
+        { status: 500 }
+      );
     }
 
-    // Log de actividad
-    await SubscriptionTracker.logUserActivity({
-      userId: user.id,
-      eventType: "menu_item_deleted",
-      eventCategory: "menu",
-      description: `Item "${item.name}" eliminado`,
-      resourceId: item.id,
-      resourceType: "menu_item",
-      oldValues: item,
-    })
-
-    return createApiResponse({ message: "Item eliminado correctamente" })
+    return NextResponse.json({ message: "Item eliminado correctamente" });
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return createErrorResponse("Error interno del servidor", 500)
+    console.error("Error deleting item:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string; categoryId: string; itemId: string } }
+) {
+  try {
+    const restaurantId = params.id;
+    const categoryId = params.categoryId;
+    const itemId = params.itemId;
+
+    // Obtener el item específico
+    const { data: item, error } = await supabase
+      .from("menu_items")
+      .select("*")
+      .eq("id", itemId)
+      .eq("restaurant_id", restaurantId)
+      .eq("category_id", categoryId)
+      .single();
+
+    if (error || !item) {
+      return NextResponse.json(
+        { error: "Item no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(item);
+  } catch (error) {
+    console.error("Error fetching item:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }

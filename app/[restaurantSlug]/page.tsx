@@ -165,8 +165,6 @@ export default async function RestaurantPage({
 
   const { restaurant, categories, menuItems } = data;
 
-  console.log({ restaurant });
-
   const theme =
     themes[restaurant.theme as keyof typeof themes] || themes.elegant;
 

@@ -1,25 +1,32 @@
-import type { NextRequest } from "next/server"
-import { getAuthenticatedUser, createApiResponse, createErrorResponse } from "@/lib/auth-middleware"
-import { updateRestaurantSchema } from "@/lib/validations"
-import { supabase } from "@/lib/supabase"
-import { SubscriptionTracker } from "@/lib/subscription-tracking"
-import { z } from "zod" // Import zod for ZodError
+import {
+  authenticateRequest,
+  getClientIP,
+  getUserAgent,
+} from "@/lib/auth-middleware";
+import type { Database } from "@/lib/database.types";
+import { restaurantSchema } from "@/lib/validations";
+import { createClient } from "@supabase/supabase-js";
+import { type NextRequest, NextResponse } from "next/server";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
 // GET - Obtener restaurante específico
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (authError || !user) {
-    return createErrorResponse("No autorizado", 401)
-  }
-
-  if (!supabase) {
-    return createErrorResponse("Servicio no disponible", 503)
-  }
-
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
+    const authResult = await authenticateRequest(request);
+    if ("error" in authResult) {
+      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    }
+
     const { data: restaurant, error } = await supabase
       .from("restaurants")
-      .select(`
+      .select(
+        `
         *,
         menu_categories (
           id,
@@ -42,50 +49,76 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             rating
           )
         )
-      `)
+      `
+      )
       .eq("id", params.id)
-      .eq("owner_id", user.id)
-      .single()
+      .eq("owner_id", authResult.user.id)
+      .eq("is_active", true)
+      .single();
 
     if (error || !restaurant) {
-      return createErrorResponse("Restaurante no encontrado", 404)
+      return NextResponse.json(
+        { error: "Restaurante no encontrado" },
+        { status: 404 }
+      );
     }
 
-    return createApiResponse({ restaurant })
+    return NextResponse.json({ restaurant });
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return createErrorResponse("Error interno del servidor", 500)
+    console.error("Error in GET /api/restaurants/[id]:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
 // PUT - Actualizar restaurante
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (authError || !user) {
-    return createErrorResponse("No autorizado", 401)
-  }
-
-  if (!supabase) {
-    return createErrorResponse("Servicio no disponible", 503)
-  }
-
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const body = await request.json()
-    const validatedData = updateRestaurantSchema.parse(body)
+    const authResult = await authenticateRequest(request);
+    if ("error" in authResult) {
+      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    }
 
-    // Obtener datos actuales para el log
-    const { data: currentRestaurant } = await supabase
+    const body = await request.json();
+    const validatedData = restaurantSchema.partial().parse(body);
+
+    // Verificar propiedad
+    const { data: existingRestaurant } = await supabase
       .from("restaurants")
       .select("*")
       .eq("id", params.id)
-      .eq("owner_id", user.id)
-      .single()
+      .eq("owner_id", authResult.user.id)
+      .single();
 
-    if (!currentRestaurant) {
-      return createErrorResponse("Restaurante no encontrado", 404)
+    if (!existingRestaurant) {
+      return NextResponse.json(
+        { error: "Restaurante no encontrado" },
+        { status: 404 }
+      );
     }
 
-    // Actualizar el restaurante
+    // Si se está cambiando el slug, verificar que no exista
+    if (validatedData.slug && validatedData.slug !== existingRestaurant.slug) {
+      const { data: slugExists } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("slug", validatedData.slug)
+        .neq("id", params.id)
+        .single();
+
+      if (slugExists) {
+        return NextResponse.json(
+          { error: "El slug ya está en uso" },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data: restaurant, error } = await supabase
       .from("restaurants")
       .update({
@@ -93,84 +126,114 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         updated_at: new Date().toISOString(),
       })
       .eq("id", params.id)
-      .eq("owner_id", user.id)
+      .eq("owner_id", authResult.user.id)
       .select()
-      .single()
+      .single();
 
     if (error) {
-      console.error("Error updating restaurant:", error)
-      return createErrorResponse("Error al actualizar restaurante", 500)
+      console.error("Error updating restaurant:", error);
+      return NextResponse.json(
+        { error: "Error al actualizar restaurante" },
+        { status: 500 }
+      );
     }
 
     // Log de actividad
-    await SubscriptionTracker.logUserActivity({
-      userId: user.id,
-      eventType: "restaurant_updated",
-      eventCategory: "menu",
-      description: `Restaurante "${restaurant.name}" actualizado`,
-      resourceId: restaurant.id,
-      resourceType: "restaurant",
-      oldValues: currentRestaurant,
-      newValues: restaurant,
-    })
+    await supabase.rpc("log_user_activity", {
+      p_user_id: authResult.user.id,
+      p_event_type: "restaurant_updated",
+      p_event_category: "restaurant",
+      p_description: `Restaurante "${restaurant.name}" actualizado`,
+      p_resource_id: restaurant.id,
+      p_resource_type: "restaurant",
+      p_old_values: existingRestaurant,
+      p_new_values: restaurant,
+      p_metadata: {
+        ip_address: getClientIP(request),
+        user_agent: getUserAgent(request),
+      },
+    });
 
-    return createApiResponse({ restaurant })
+    return NextResponse.json({ restaurant });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(`Datos inválidos: ${error.errors.map((e) => e.message).join(", ")}`, 400)
+    console.error("Error in PUT /api/restaurants/[id]:", error);
+    if (error instanceof Error && error.name === "ZodError") {
+      return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
     }
-
-    console.error("Unexpected error:", error)
-    return createErrorResponse("Error interno del servidor", 500)
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
 // DELETE - Eliminar restaurante
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (authError || !user) {
-    return createErrorResponse("No autorizado", 401)
-  }
-
-  if (!supabase) {
-    return createErrorResponse("Servicio no disponible", 503)
-  }
-
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    // Obtener datos del restaurante antes de eliminar
+    const authResult = await authenticateRequest(request);
+    if ("error" in authResult) {
+      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    }
+
+    // Verificar propiedad
     const { data: restaurant } = await supabase
       .from("restaurants")
       .select("*")
       .eq("id", params.id)
-      .eq("owner_id", user.id)
-      .single()
+      .eq("owner_id", authResult.user.id)
+      .single();
 
     if (!restaurant) {
-      return createErrorResponse("Restaurante no encontrado", 404)
+      return NextResponse.json(
+        { error: "Restaurante no encontrado" },
+        { status: 404 }
+      );
     }
 
-    // Eliminar el restaurante (cascade eliminará categorías e items)
-    const { error } = await supabase.from("restaurants").delete().eq("id", params.id).eq("owner_id", user.id)
+    // Soft delete
+    const { error } = await supabase
+      .from("restaurants")
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.id)
+      .eq("owner_id", authResult.user.id);
 
     if (error) {
-      console.error("Error deleting restaurant:", error)
-      return createErrorResponse("Error al eliminar restaurante", 500)
+      console.error("Error deleting restaurant:", error);
+      return NextResponse.json(
+        { error: "Error al eliminar restaurante" },
+        { status: 500 }
+      );
     }
 
     // Log de actividad
-    await SubscriptionTracker.logUserActivity({
-      userId: user.id,
-      eventType: "restaurant_deleted",
-      eventCategory: "menu",
-      description: `Restaurante "${restaurant.name}" eliminado`,
-      resourceId: restaurant.id,
-      resourceType: "restaurant",
-      oldValues: restaurant,
-    })
+    await supabase.rpc("log_user_activity", {
+      p_user_id: authResult.user.id,
+      p_event_type: "restaurant_deleted",
+      p_event_category: "restaurant",
+      p_description: `Restaurante "${restaurant.name}" eliminado`,
+      p_resource_id: restaurant.id,
+      p_resource_type: "restaurant",
+      p_metadata: {
+        restaurant_name: restaurant.name,
+        ip_address: getClientIP(request),
+        user_agent: getUserAgent(request),
+      },
+    });
 
-    return createApiResponse({ message: "Restaurante eliminado correctamente" })
+    return NextResponse.json({
+      message: "Restaurante eliminado correctamente",
+    });
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return createErrorResponse("Error interno del servidor", 500)
+    console.error("Error in DELETE /api/restaurants/[id]:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }

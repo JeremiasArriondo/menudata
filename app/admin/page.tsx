@@ -90,8 +90,6 @@ export default function AdminPage() {
   const loadRestaurants = async () => {
     try {
       setLoading(true);
-      console.log({ user });
-
       const response = await fetch("/api/restaurants", {
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
