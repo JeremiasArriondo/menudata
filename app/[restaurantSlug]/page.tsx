@@ -1,9 +1,6 @@
-import { Card, CardContent } from "@/components/ui/card";
-import MenuItemList from "@/components/ui/menu-item-list";
+import ViewTracker from "@/components/ui/view-tracker";
 import { getThemeById } from "@/lib/menu-themes";
 import { supabase } from "@/lib/supabase";
-import { Clock, MapPin, Phone } from "lucide-react";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 interface Restaurant {
   id: string;
@@ -103,44 +100,6 @@ async function getRestaurantData(slug: string): Promise<RestaurantData | null> {
   }
 }
 
-const themes = {
-  elegant: {
-    bg: "bg-gradient-to-br from-slate-50 to-gray-100",
-    card: "bg-white border-gray-200 shadow-sm",
-    text: "text-gray-900",
-    accent: "text-amber-600",
-    button: "bg-amber-600 hover:bg-amber-700 text-white",
-  },
-  modern: {
-    bg: "bg-gradient-to-br from-blue-50 to-indigo-100",
-    card: "bg-white border-blue-200 shadow-sm",
-    text: "text-gray-900",
-    accent: "text-blue-600",
-    button: "bg-blue-600 hover:bg-blue-700 text-white",
-  },
-  warm: {
-    bg: "bg-gradient-to-br from-orange-50 to-red-100",
-    card: "bg-white border-orange-200 shadow-sm",
-    text: "text-gray-900",
-    accent: "text-orange-600",
-    button: "bg-orange-600 hover:bg-orange-700 text-white",
-  },
-  fresh: {
-    bg: "bg-gradient-to-br from-green-50 to-emerald-100",
-    card: "bg-white border-green-200 shadow-sm",
-    text: "text-gray-900",
-    accent: "text-green-600",
-    button: "bg-green-600 hover:bg-green-700 text-white",
-  },
-  dark: {
-    bg: "bg-gradient-to-br from-gray-900 to-black",
-    card: "bg-gray-800 border-gray-700 shadow-lg",
-    text: "text-white",
-    accent: "text-purple-400",
-    button: "bg-purple-600 hover:bg-purple-700 text-white",
-  },
-};
-
 export default async function RestaurantPage({
   params,
 }: {
@@ -168,118 +127,203 @@ export default async function RestaurantPage({
 
   return (
     <div className={`min-h-screen ${theme.classes.bg}`}>
-      {/* Header del restaurante */}
-      <div className="relative">
-        <div className="relative px-4 py-8">
-          <div className="max-w-4xl mx-auto">
-            <Card className={`${theme.classes.card} p-6`}>
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                {restaurant.logo_url && (
-                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-white shadow-lg flex-shrink-0">
-                    <Image
-                      src={restaurant.logo_url || "/placeholder.svg"}
-                      alt={`Logo de ${restaurant.name}`}
-                      width={96}
-                      height={96}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
+      <ViewTracker restaurantId={restaurant.id} />
 
-                <div className="flex-1">
-                  <h1
-                    className={`text-3xl md:text-4xl font-bold ${theme.classes.text} mb-2`}
-                  >
-                    {restaurant.name}
-                  </h1>
-
-                  {restaurant.description && (
-                    <p
-                      className={`text-lg ${theme.classes.text} opacity-80 mb-4`}
-                    >
-                      {restaurant.description}
-                    </p>
-                  )}
-
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    {restaurant.address && (
-                      <div
-                        className={`flex items-center gap-2 ${theme.classes.accent}`}
-                      >
-                        <MapPin className="h-4 w-4" />
-                        <span>{restaurant.address}</span>
-                      </div>
-                    )}
-
-                    {restaurant.phone && (
-                      <div
-                        className={`flex items-center gap-2 ${theme.classes.accent}`}
-                      >
-                        <Phone className="h-4 w-4" />
-                        <span>{restaurant.phone}</span>
-                      </div>
-                    )}
-
-                    {restaurant.hours && (
-                      <div
-                        className={`flex items-center gap-2 ${theme.classes.accent}`}
-                      >
-                        <Clock className="h-4 w-4" />
-                        <span>{restaurant.hours}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      {/* Menú */}
-      <div className="max-w-4xl mx-auto px-4 pb-12">
-        {categories.length === 0 ? (
-          <Card className={`${theme.classes.card} text-center py-12`}>
-            <CardContent>
-              <h2 className={`text-2xl font-bold ${theme.classes.text} mb-4`}>
-                Menú en construcción
-              </h2>
-              <p className={`${theme.classes.text} opacity-70`}>
-                Estamos preparando nuestro delicioso menú. ¡Vuelve pronto!
+      <div className="container mx-auto px-4 py-8">
+        {/* Header del restaurante */}
+        <div
+          className={`${theme.classes.card} ${theme.style.borderRadius} ${theme.classes.border} p-8 mb-8`}
+        >
+          <div className={`text-center ${theme.style.headerStyle}`}>
+            <h1
+              className={`text-4xl md:text-5xl font-bold mb-4 ${theme.classes.text} ${theme.style.fontFamily}`}
+            >
+              {restaurant.name}
+            </h1>
+            {restaurant.description && (
+              <p
+                className={`text-lg ${theme.classes.textSecondary} max-w-2xl mx-auto`}
+              >
+                {restaurant.description}
               </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-8">
-            {categories.map((category) => (
-              <div key={category.id} className="mb-12">
+            )}
+          </div>
+
+          {/* Información de contacto */}
+          {(restaurant.phone || restaurant.address || restaurant.website) && (
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+              {restaurant.phone && (
+                <div className={theme.classes.textSecondary}>
+                  <div className="font-medium">Teléfono</div>
+                  <div>{restaurant.phone}</div>
+                </div>
+              )}
+              {restaurant.address && (
+                <div className={theme.classes.textSecondary}>
+                  <div className="font-medium">Dirección</div>
+                  <div>{restaurant.address}</div>
+                </div>
+              )}
+              {restaurant.website && (
+                <div className={theme.classes.textSecondary}>
+                  <div className="font-medium">Sitio Web</div>
+                  <a
+                    href={restaurant.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${theme.classes.accent} hover:underline`}
+                  >
+                    Visitar
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Redes sociales */}
+          {(restaurant.instagram ||
+            restaurant.facebook ||
+            restaurant.whatsapp) && (
+            <div className="mt-6 flex justify-center gap-4">
+              {restaurant.instagram && (
+                <a
+                  href={`https://instagram.com/${restaurant.instagram}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${theme.classes.button} px-4 py-2 ${theme.style.borderRadius} text-sm font-medium transition-colors`}
+                >
+                  Instagram
+                </a>
+              )}
+              {restaurant.facebook && (
+                <a
+                  href={`https://facebook.com/${restaurant.facebook}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${theme.classes.button} px-4 py-2 ${theme.style.borderRadius} text-sm font-medium transition-colors`}
+                >
+                  Facebook
+                </a>
+              )}
+              {restaurant.whatsapp && (
+                <a
+                  href={`https://wa.me/${restaurant.whatsapp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${theme.classes.button} px-4 py-2 ${theme.style.borderRadius} text-sm font-medium transition-colors`}
+                >
+                  WhatsApp
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Menú */}
+        <div className="space-y-8">
+          {categories?.map((category) => {
+            const items = itemsByCategory[category.id] || [];
+            if (items.length === 0) return null;
+
+            return (
+              <div key={category.id}>
                 <div className="mb-6">
                   <h2
-                    className={`text-2xl md:text-3xl font-bold ${theme.classes.text} mb-2`}
+                    className={`text-3xl font-bold ${theme.classes.categoryTitle} pb-2 ${theme.style.fontFamily}`}
                   >
                     {category.name}
                   </h2>
+                  {category?.description && (
+                    <p className={`${theme.classes.textSecondary} mt-2`}>
+                      {category.description}
+                    </p>
+                  )}
                 </div>
 
-                <div className="grid gap-4 md:gap-6">
-                  <MenuItemList
-                    items={itemsByCategory[category.id] || []}
-                    theme={theme}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`${theme.classes.card} ${theme.style.borderRadius} ${theme.classes.border} p-6 hover:shadow-lg transition-shadow`}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <h3
+                          className={`text-xl font-semibold ${theme.classes.text} ${theme.style.fontFamily}`}
+                        >
+                          {item.name}
+                        </h3>
+                        <span
+                          className={`text-xl font-bold ${theme.classes.price} ml-4`}
+                        >
+                          ${item.price.toFixed(2)}
+                        </span>
+                      </div>
+
+                      {item.description && (
+                        <p
+                          className={`${theme.classes.textSecondary} mb-4 leading-relaxed`}
+                        >
+                          {item.description}
+                        </p>
+                      )}
+
+                      {/* Badges para características especiales */}
+                      {(item.is_vegetarian ||
+                        item.is_vegan ||
+                        item.is_gluten_free) && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {item.is_vegetarian && (
+                            <span
+                              className={`px-2 py-1 text-xs ${theme.style.borderRadius} bg-green-100 text-green-800`}
+                            >
+                              Vegetariano
+                            </span>
+                          )}
+                          {item.is_vegan && (
+                            <span
+                              className={`px-2 py-1 text-xs ${theme.style.borderRadius} bg-green-100 text-green-800`}
+                            >
+                              Vegano
+                            </span>
+                          )}
+                          {item.is_gluten_free && (
+                            <span
+                              className={`px-2 py-1 text-xs ${theme.style.borderRadius} bg-blue-100 text-blue-800`}
+                            >
+                              Sin Gluten
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Imagen del plato */}
+                      {item.image_url && (
+                        <div className="mt-4">
+                          <img
+                            src={item.image_url || "/placeholder.svg"}
+                            alt={item.name}
+                            className={`w-full h-48 object-cover ${theme.style.borderRadius}`}
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
 
-      {/* Footer */}
-      <div className="border-t border-gray-200 bg-white/50 backdrop-blur-sm">
-        <div className="max-w-4xl mx-auto px-4 py-6 text-center">
-          <p className="text-sm text-gray-600">
-            Menú digital creado con{" "}
-            <span className="font-semibold text-orange-600">MenuData</span>
-          </p>
+        {/* Footer */}
+        <div className="mt-16 text-center">
+          <div
+            className={`${theme.classes.card} ${theme.style.borderRadius} ${theme.classes.border} p-6`}
+          >
+            <p className={`${theme.classes.textSecondary} text-sm`}>
+              Menú digital creado con ❤️
+            </p>
+          </div>
         </div>
       </div>
     </div>
