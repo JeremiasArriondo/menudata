@@ -249,11 +249,10 @@ const menuThemes: MenuTheme[] = [
 ];
 
 export default function EditarMenuPage() {
-  const { session } = useAuth();
+  const { user, getAccessToken, isConfigured } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const restaurantId = searchParams.get("id");
-
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -265,7 +264,8 @@ export default function EditarMenuPage() {
   const [activeTab, setActiveTab] = useState("menu");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
-
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [newItem, setNewItem] = useState<Partial<MenuItem>>({
     name: "",
     description: "",
@@ -278,13 +278,47 @@ export default function EditarMenuPage() {
   // Cargar datos del restaurante
   useEffect(() => {
     const loadRestaurant = async () => {
-      if (!restaurantId || !session?.access_token) return;
+      if (!user && isConfigured) {
+        router.push("/login");
+        return;
+      }
+
+      if (!user) return;
 
       try {
         setLoading(true);
-        const response = await fetch(`/api/restaurants/${restaurantId}`, {
+        const token = await getAccessToken();
+        if (!token) {
+          throw new Error("No se pudo obtener el token de acceso");
+        }
+
+        // Si no hay restaurantId, cargar el primer restaurante del usuario
+        let targetRestaurantId = restaurantId;
+        if (!targetRestaurantId) {
+          const restaurantsResponse = await fetch("/api/restaurants", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!restaurantsResponse.ok) {
+            throw new Error("Error al cargar restaurantes");
+          }
+
+          const restaurantsData = await restaurantsResponse.json();
+          const restaurants = restaurantsData.restaurants || [];
+
+          if (restaurants.length === 0) {
+            router.push("/crear-menu");
+            return;
+          }
+
+          targetRestaurantId = restaurants[0].id;
+        }
+
+        const response = await fetch(`/api/restaurants/${targetRestaurantId}`, {
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
         });
 
@@ -293,7 +327,22 @@ export default function EditarMenuPage() {
         }
 
         const data = await response.json();
-        setRestaurant(data.restaurant);
+
+        // Asegurar que cada item tenga su category_id asignado
+        const restaurantWithCategoryIds = {
+          ...data.restaurant,
+          menu_categories: data.restaurant.menu_categories.map(
+            (category: MenuCategory) => ({
+              ...category,
+              menu_items: category.menu_items.map((item: MenuItem) => ({
+                ...item,
+                category_id: category.id, // Asegurar que cada item tenga el category_id
+              })),
+            })
+          ),
+        };
+
+        setRestaurant(restaurantWithCategoryIds);
 
         // Establecer el tema actual
         const currentTheme =
@@ -302,6 +351,7 @@ export default function EditarMenuPage() {
         setSelectedTheme(currentTheme);
       } catch (error) {
         console.error("Error loading restaurant:", error);
+        setError("Error al cargar el restaurante");
         router.push("/admin");
       } finally {
         setLoading(false);
@@ -309,16 +359,21 @@ export default function EditarMenuPage() {
     };
 
     loadRestaurant();
-  }, [restaurantId, session, router]);
+  }, [restaurantId, user, getAccessToken, isConfigured, router]);
 
-  // Marcar cambios no guardados
+  // Clear alerts after 5 seconds
   useEffect(() => {
-    if (restaurant) {
-      setHasUnsavedChanges(true);
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError(null);
+        setSuccess(null);
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  }, [restaurant, selectedTheme]);
+  }, [error, success]);
 
   const handleDragStart = (item: MenuItem) => {
+    console.log("Drag started for item:", item);
     setDraggedItem(item);
   };
 
@@ -328,27 +383,52 @@ export default function EditarMenuPage() {
 
   const handleDrop = async (e: React.DragEvent, targetCategoryId: string) => {
     e.preventDefault();
-    if (!draggedItem || !session?.access_token) return;
+    if (!draggedItem || !restaurant) return;
+
+    console.log("Dropping item:", {
+      itemId: draggedItem.id,
+      fromCategory: draggedItem.category_id,
+      toCategory: targetCategoryId,
+    });
+
+    // Si es la misma categoría, no hacer nada
+    if (draggedItem.category_id === targetCategoryId) {
+      setDraggedItem(null);
+      return;
+    }
 
     try {
-      // Actualizar en la base de datos
+      const token = await getAccessToken();
+      if (!token) return;
+
+      // Actualizar en la base de datos usando la categoría original en la URL
       const response = await fetch(
-        `/api/restaurants/${restaurant?.id}/categories/${draggedItem.category_id}/items/${draggedItem.id}`,
+        `/api/restaurants/${restaurant.id}/categories/${draggedItem.category_id}/items/${draggedItem.id}`,
         {
-          method: "PATCH",
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            category_id: targetCategoryId,
+            name: draggedItem.name,
+            description: draggedItem.description,
+            price: draggedItem.price,
+            is_featured: draggedItem.is_featured,
+            is_available: draggedItem.is_available,
+            category_id: targetCategoryId, // Nueva categoría
           }),
         }
       );
 
       if (!response.ok) {
-        throw new Error("Error al mover el item");
+        const errorData = await response.json();
+        console.error("API Error:", errorData);
+        throw new Error(errorData.error || "Error al mover el item");
       }
+
+      const updatedItem = await response.json();
+      console.log("Item moved successfully:", updatedItem);
 
       // Actualizar el estado local
       setRestaurant((prev) => {
@@ -356,6 +436,7 @@ export default function EditarMenuPage() {
 
         const updatedCategories = prev.menu_categories.map((category) => {
           if (category.id === draggedItem.category_id) {
+            // Remover item de la categoría original
             return {
               ...category,
               menu_items: category.menu_items.filter(
@@ -364,11 +445,12 @@ export default function EditarMenuPage() {
             };
           }
           if (category.id === targetCategoryId) {
+            // Agregar item a la nueva categoría
             return {
               ...category,
               menu_items: [
                 ...category.menu_items,
-                { ...draggedItem, category_id: targetCategoryId },
+                { ...updatedItem, category_id: targetCategoryId },
               ],
             };
           }
@@ -377,24 +459,32 @@ export default function EditarMenuPage() {
 
         return { ...prev, menu_categories: updatedCategories };
       });
+
+      setSuccess("Item movido correctamente");
     } catch (error) {
       console.error("Error moving item:", error);
+      setError(
+        error instanceof Error ? error.message : "Error al mover el item"
+      );
+    } finally {
+      setDraggedItem(null);
     }
-
-    setDraggedItem(null);
   };
 
   const handleSaveItem = async () => {
-    if (!editingItem || !session?.access_token) return;
+    if (!editingItem || !restaurant) return;
 
     try {
+      const token = await getAccessToken();
+      if (!token) return;
+
       const response = await fetch(
-        `/api/restaurants/${restaurant?.id}/categories/${editingItem.category_id}/items/${editingItem.id}`,
+        `/api/restaurants/${restaurant.id}/categories/${editingItem.category_id}/items/${editingItem.id}`,
         {
-          method: "PATCH",
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             name: editingItem.name,
@@ -407,8 +497,11 @@ export default function EditarMenuPage() {
       );
 
       if (!response.ok) {
-        throw new Error("Error al actualizar el item");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al actualizar el item");
       }
+
+      const updatedItem = await response.json();
 
       // Actualizar el estado local
       setRestaurant((prev) => {
@@ -417,7 +510,9 @@ export default function EditarMenuPage() {
         const updatedCategories = prev.menu_categories.map((category) => ({
           ...category,
           menu_items: category.menu_items.map((item) =>
-            item.id === editingItem.id ? editingItem : item
+            item.id === editingItem.id
+              ? { ...updatedItem, category_id: editingItem.category_id }
+              : item
           ),
         }));
 
@@ -425,8 +520,12 @@ export default function EditarMenuPage() {
       });
 
       setEditingItem(null);
+      setSuccess("Item actualizado correctamente");
     } catch (error) {
       console.error("Error saving item:", error);
+      setError(
+        error instanceof Error ? error.message : "Error al actualizar el item"
+      );
     }
   };
 
@@ -436,18 +535,21 @@ export default function EditarMenuPage() {
       !newItem.description ||
       !newItem.price ||
       !newItem.category_id ||
-      !session?.access_token
+      !restaurant
     )
       return;
 
     try {
+      const token = await getAccessToken();
+      if (!token) return;
+
       const response = await fetch(
-        `/api/restaurants/${restaurant?.id}/categories/${newItem.category_id}/items`,
+        `/api/restaurants/${restaurant.id}/categories/${newItem.category_id}/items`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             name: newItem.name,
@@ -460,11 +562,15 @@ export default function EditarMenuPage() {
       );
 
       if (!response.ok) {
-        throw new Error("Error al crear el item");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al crear el item");
       }
 
       const data = await response.json();
-      const createdItem = data.item;
+      const createdItem = {
+        ...data.item,
+        category_id: newItem.category_id, // Asegurar que el nuevo item tenga category_id
+      };
 
       // Actualizar el estado local
       setRestaurant((prev) => {
@@ -488,27 +594,35 @@ export default function EditarMenuPage() {
         is_available: true,
       });
       setIsAddingItem(false);
+      setSuccess("Item creado correctamente");
     } catch (error) {
       console.error("Error adding item:", error);
+      setError(
+        error instanceof Error ? error.message : "Error al crear el item"
+      );
     }
   };
 
   const handleDeleteItem = async (itemId: string, categoryId: string) => {
-    if (!session?.access_token) return;
+    if (!restaurant || !confirm("¿Estás seguro de eliminar este item?")) return;
 
     try {
+      const token = await getAccessToken();
+      if (!token) return;
+
       const response = await fetch(
-        `/api/restaurants/${restaurant?.id}/categories/${categoryId}/items/${itemId}`,
+        `/api/restaurants/${restaurant.id}/categories/${categoryId}/items/${itemId}`,
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
       if (!response.ok) {
-        throw new Error("Error al eliminar el item");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al eliminar el item");
       }
 
       // Actualizar el estado local
@@ -522,23 +636,30 @@ export default function EditarMenuPage() {
 
         return { ...prev, menu_categories: updatedCategories };
       });
+
+      setSuccess("Item eliminado correctamente");
     } catch (error) {
       console.error("Error deleting item:", error);
+      setError(
+        error instanceof Error ? error.message : "Error al eliminar el item"
+      );
     }
   };
 
   const handleSaveMenu = async () => {
-    if (!restaurant || !session?.access_token) return;
+    if (!restaurant) return;
 
     try {
       setSaving(true);
+      const token = await getAccessToken();
+      if (!token) return;
 
-      // Actualizar información del restaurante
+      // Usar PUT en lugar de PATCH
       const response = await fetch(`/api/restaurants/${restaurant.id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: restaurant.name,
@@ -553,13 +674,18 @@ export default function EditarMenuPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Error al guardar el menú");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al guardar el menú");
       }
 
       setHasUnsavedChanges(false);
       setLastSaved(new Date());
+      setSuccess("Menú guardado correctamente");
     } catch (error) {
       console.error("Error saving menu:", error);
+      setError(
+        error instanceof Error ? error.message : "Error al guardar el menú"
+      );
     } finally {
       setSaving(false);
     }
@@ -606,7 +732,6 @@ export default function EditarMenuPage() {
             menudata.com/{restaurant.slug}
           </p>
         </div>
-
         {sampleCategories.map((category) => (
           <div key={category.id} className="mb-6">
             <h3
@@ -717,6 +842,7 @@ export default function EditarMenuPage() {
     (acc, category) => acc + category.menu_items.length,
     0
   );
+
   const totalViews = restaurant.menu_categories.reduce(
     (acc, category) =>
       acc +
@@ -726,6 +852,7 @@ export default function EditarMenuPage() {
       ),
     0
   );
+
   const featuredItems = restaurant.menu_categories.reduce(
     (acc, category) =>
       acc + category.menu_items.filter((item) => item.is_featured).length,
@@ -836,6 +963,27 @@ export default function EditarMenuPage() {
         </div>
       </section>
 
+      {/* Alerts */}
+      {error && (
+        <div className="container mx-auto px-4 pt-4">
+          <Alert className="border-red-200 bg-red-50">
+            <AlertDescription className="text-red-800">
+              {error}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {success && (
+        <div className="container mx-auto px-4 pt-4">
+          <Alert className="border-green-200 bg-green-50">
+            <AlertDescription className="text-green-800">
+              {success}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -883,7 +1031,6 @@ export default function EditarMenuPage() {
                 Agregar Plato
               </Button>
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
               {restaurant.menu_categories.map((category) => (
                 <Card
@@ -945,7 +1092,6 @@ export default function EditarMenuPage() {
                               </Button>
                             </div>
                           </div>
-
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-2">
                               <span className="font-bold text-brand-primary-100">
@@ -973,33 +1119,36 @@ export default function EditarMenuPage() {
                               )}
                             </div>
                           </div>
-
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <Switch
                                 checked={item.is_available}
                                 onCheckedChange={async (checked) => {
-                                  if (!session?.access_token) return;
-
                                   try {
+                                    const token = await getAccessToken();
+                                    if (!token) return;
+
                                     const response = await fetch(
                                       `/api/restaurants/${restaurant.id}/categories/${item.category_id}/items/${item.id}`,
                                       {
-                                        method: "PATCH",
+                                        method: "PUT",
                                         headers: {
                                           "Content-Type": "application/json",
-                                          Authorization: `Bearer ${session.access_token}`,
+                                          Authorization: `Bearer ${token}`,
                                         },
                                         body: JSON.stringify({
+                                          name: item.name,
+                                          description: item.description,
+                                          price: item.price,
+                                          is_featured: item.is_featured,
                                           is_available: checked,
                                         }),
                                       }
                                     );
-
                                     if (response.ok) {
+                                      const updatedItem = await response.json();
                                       setRestaurant((prev) => {
                                         if (!prev) return prev;
-
                                         const updatedCategories =
                                           prev.menu_categories.map((cat) => ({
                                             ...cat,
@@ -1007,13 +1156,14 @@ export default function EditarMenuPage() {
                                               (i) =>
                                                 i.id === item.id
                                                   ? {
-                                                      ...i,
+                                                      ...updatedItem,
+                                                      category_id:
+                                                        item.category_id,
                                                       is_available: checked,
                                                     }
                                                   : i
                                             ),
                                           }));
-
                                         return {
                                           ...prev,
                                           menu_categories: updatedCategories,
@@ -1024,6 +1174,9 @@ export default function EditarMenuPage() {
                                     console.error(
                                       "Error updating availability:",
                                       error
+                                    );
+                                    setError(
+                                      "Error al actualizar disponibilidad"
                                     );
                                   }
                                 }}
@@ -1038,7 +1191,6 @@ export default function EditarMenuPage() {
                           </div>
                         </div>
                       ))}
-
                       {category.menu_items.length === 0 && (
                         <div className="text-center py-8 text-brand-text-100">
                           <p className="text-sm">
@@ -1066,7 +1218,6 @@ export default function EditarMenuPage() {
                 Cambia la apariencia visual de tu menú
               </p>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {menuThemes.map((theme) => (
                 <Card
@@ -1135,7 +1286,6 @@ export default function EditarMenuPage() {
                 Actualiza la información básica de tu restaurante
               </p>
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Card className="bg-white dark:bg-brand-text-100/10 border-brand-bg-300">
                 <CardHeader>
@@ -1154,11 +1304,12 @@ export default function EditarMenuPage() {
                     <Input
                       id="restaurant-name"
                       value={restaurant.name}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setRestaurant((prev) =>
                           prev ? { ...prev, name: e.target.value } : null
-                        )
-                      }
+                        );
+                        setHasUnsavedChanges(true);
+                      }}
                       className="mt-1"
                     />
                     <p className="text-sm text-brand-text-100 mt-1">
@@ -1175,11 +1326,12 @@ export default function EditarMenuPage() {
                     <Textarea
                       id="description"
                       value={restaurant.description || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setRestaurant((prev) =>
                           prev ? { ...prev, description: e.target.value } : null
-                        )
-                      }
+                        );
+                        setHasUnsavedChanges(true);
+                      }}
                       placeholder="Describe tu restaurante..."
                       className="mt-1"
                       rows={3}
@@ -1192,11 +1344,12 @@ export default function EditarMenuPage() {
                     <Input
                       id="phone"
                       value={restaurant.phone || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setRestaurant((prev) =>
                           prev ? { ...prev, phone: e.target.value } : null
-                        )
-                      }
+                        );
+                        setHasUnsavedChanges(true);
+                      }}
                       placeholder="+54 9 11 1234-5678"
                       className="mt-1"
                     />
@@ -1208,11 +1361,12 @@ export default function EditarMenuPage() {
                     <Input
                       id="address"
                       value={restaurant.address || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setRestaurant((prev) =>
                           prev ? { ...prev, address: e.target.value } : null
-                        )
-                      }
+                        );
+                        setHasUnsavedChanges(true);
+                      }}
                       placeholder="Av. Corrientes 1234, CABA"
                       className="mt-1"
                     />
@@ -1224,11 +1378,12 @@ export default function EditarMenuPage() {
                     <Input
                       id="hours"
                       value={restaurant.hours || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setRestaurant((prev) =>
                           prev ? { ...prev, hours: e.target.value } : null
-                        )
-                      }
+                        );
+                        setHasUnsavedChanges(true);
+                      }}
                       placeholder="Lun-Dom 12:00-23:00"
                       className="mt-1"
                     />
@@ -1240,18 +1395,18 @@ export default function EditarMenuPage() {
                     <Input
                       id="website"
                       value={restaurant.website || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setRestaurant((prev) =>
                           prev ? { ...prev, website: e.target.value } : null
-                        )
-                      }
+                        );
+                        setHasUnsavedChanges(true);
+                      }}
                       placeholder="www.mirestaurante.com"
                       className="mt-1"
                     />
                   </div>
                 </CardContent>
               </Card>
-
               <Card className="bg-white dark:bg-brand-text-100/10 border-brand-bg-300">
                 <CardHeader>
                   <CardTitle className="text-brand-text-200">
@@ -1277,7 +1432,6 @@ export default function EditarMenuPage() {
                 Analiza el rendimiento de tus platos
               </p>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card className="bg-gradient-to-br from-brand-primary-100/20 to-brand-primary-200/20 border-brand-primary-100/30">
                 <CardHeader className="pb-3">
@@ -1332,7 +1486,6 @@ export default function EditarMenuPage() {
                 </CardContent>
               </Card>
             </div>
-
             <Card className="bg-white dark:bg-brand-text-100/10 border-brand-bg-300">
               <CardHeader>
                 <CardTitle className="text-brand-text-200">

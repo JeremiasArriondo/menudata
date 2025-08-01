@@ -9,6 +9,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 interface AuthContextType {
   user: AuthUser | null;
   session: Session | null;
+  getAccessToken: () => Promise<string | null>;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (
@@ -115,6 +116,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {};
   };
 
+  const getAccessToken = async (): Promise<string | null> => {
+    try {
+      const {
+        data: { session },
+        error,
+      } = await supabase!.auth.getSession();
+
+      if (error) {
+        console.error("Error getting session:", error);
+        return null;
+      }
+
+      return session?.access_token ?? null;
+    } catch (error) {
+      console.error("Error getting access token:", error);
+      return null;
+    }
+  };
+
   const signOut = async () => {
     if (!configured || !supabase) {
       throw new Error("Supabase no está configurado");
@@ -127,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     session,
+    getAccessToken,
     loading,
     signInWithGoogle,
     signInWithEmail,
