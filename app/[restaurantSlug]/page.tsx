@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import MenuItemList from "@/components/ui/menu-item-list";
+import { getThemeById } from "@/lib/menu-themes";
 import { supabase } from "@/lib/supabase";
 import { Clock, MapPin, Phone } from "lucide-react";
 import Image from "next/image";
@@ -102,16 +103,6 @@ async function getRestaurantData(slug: string): Promise<RestaurantData | null> {
   }
 }
 
-async function incrementViewCount(itemId: string) {
-  try {
-    await fetch(`/api/public/restaurants/${itemId}/view`, {
-      method: "POST",
-    });
-  } catch (error) {
-    console.error("Error incrementing view count:", error);
-  }
-}
-
 const themes = {
   elegant: {
     bg: "bg-gradient-to-br from-slate-50 to-gray-100",
@@ -165,8 +156,7 @@ export default async function RestaurantPage({
 
   const { restaurant, categories, menuItems } = data;
 
-  const theme =
-    themes[restaurant.theme as keyof typeof themes] || themes.elegant;
+  const theme = getThemeById(restaurant.theme);
 
   const itemsByCategory = menuItems.reduce((acc, item) => {
     if (!acc[item.category_id]) {
@@ -177,12 +167,12 @@ export default async function RestaurantPage({
   }, {} as Record<string, MenuItem[]>);
 
   return (
-    <div className={`min-h-screen ${theme.bg}`}>
+    <div className={`min-h-screen ${theme.classes.bg}`}>
       {/* Header del restaurante */}
       <div className="relative">
         <div className="relative px-4 py-8">
           <div className="max-w-4xl mx-auto">
-            <Card className={`${theme.card} p-6`}>
+            <Card className={`${theme.classes.card} p-6`}>
               <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                 {restaurant.logo_url && (
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-white shadow-lg flex-shrink-0">
@@ -198,13 +188,15 @@ export default async function RestaurantPage({
 
                 <div className="flex-1">
                   <h1
-                    className={`text-3xl md:text-4xl font-bold ${theme.text} mb-2`}
+                    className={`text-3xl md:text-4xl font-bold ${theme.classes.text} mb-2`}
                   >
                     {restaurant.name}
                   </h1>
 
                   {restaurant.description && (
-                    <p className={`text-lg ${theme.text} opacity-80 mb-4`}>
+                    <p
+                      className={`text-lg ${theme.classes.text} opacity-80 mb-4`}
+                    >
                       {restaurant.description}
                     </p>
                   )}
@@ -212,7 +204,7 @@ export default async function RestaurantPage({
                   <div className="flex flex-wrap gap-4 text-sm">
                     {restaurant.address && (
                       <div
-                        className={`flex items-center gap-2 ${theme.accent}`}
+                        className={`flex items-center gap-2 ${theme.classes.accent}`}
                       >
                         <MapPin className="h-4 w-4" />
                         <span>{restaurant.address}</span>
@@ -221,7 +213,7 @@ export default async function RestaurantPage({
 
                     {restaurant.phone && (
                       <div
-                        className={`flex items-center gap-2 ${theme.accent}`}
+                        className={`flex items-center gap-2 ${theme.classes.accent}`}
                       >
                         <Phone className="h-4 w-4" />
                         <span>{restaurant.phone}</span>
@@ -230,7 +222,7 @@ export default async function RestaurantPage({
 
                     {restaurant.hours && (
                       <div
-                        className={`flex items-center gap-2 ${theme.accent}`}
+                        className={`flex items-center gap-2 ${theme.classes.accent}`}
                       >
                         <Clock className="h-4 w-4" />
                         <span>{restaurant.hours}</span>
@@ -247,12 +239,12 @@ export default async function RestaurantPage({
       {/* Menú */}
       <div className="max-w-4xl mx-auto px-4 pb-12">
         {categories.length === 0 ? (
-          <Card className={`${theme.card} text-center py-12`}>
+          <Card className={`${theme.classes.card} text-center py-12`}>
             <CardContent>
-              <h2 className={`text-2xl font-bold ${theme.text} mb-4`}>
+              <h2 className={`text-2xl font-bold ${theme.classes.text} mb-4`}>
                 Menú en construcción
               </h2>
-              <p className={`${theme.text} opacity-70`}>
+              <p className={`${theme.classes.text} opacity-70`}>
                 Estamos preparando nuestro delicioso menú. ¡Vuelve pronto!
               </p>
             </CardContent>
@@ -263,7 +255,7 @@ export default async function RestaurantPage({
               <div key={category.id} className="mb-12">
                 <div className="mb-6">
                   <h2
-                    className={`text-2xl md:text-3xl font-bold ${theme.text} mb-2`}
+                    className={`text-2xl md:text-3xl font-bold ${theme.classes.text} mb-2`}
                   >
                     {category.name}
                   </h2>

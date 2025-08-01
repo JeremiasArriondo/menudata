@@ -85,7 +85,23 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const validatedData = restaurantSchema.partial().parse(body);
+    console.log("PUT /api/restaurants/[id] - Raw body:", body);
+
+    // Limpiar datos antes de validar - convertir strings vacíos a null
+    const cleanedData = {
+      ...body,
+      description: body.description === "" ? null : body.description,
+      phone: body.phone === "" ? null : body.phone,
+      address: body.address === "" ? null : body.address,
+      hours: body.hours === "" ? null : body.hours,
+      website: body.website === "" ? null : body.website,
+    };
+
+    console.log("PUT /api/restaurants/[id] - Cleaned data:", cleanedData);
+
+    // Validar solo los campos que se están enviando
+    const validatedData = restaurantSchema.partial().parse(cleanedData);
+    console.log("PUT /api/restaurants/[id] - Validated data:", validatedData);
 
     // Verificar propiedad
     const { data: existingRestaurant } = await supabase
@@ -138,6 +154,8 @@ export async function PUT(
       );
     }
 
+    console.log("PUT /api/restaurants/[id] - Updated restaurant:", restaurant);
+
     // Log de actividad
     await supabase.rpc("log_user_activity", {
       p_user_id: authResult.user.id,
@@ -158,7 +176,14 @@ export async function PUT(
   } catch (error) {
     console.error("Error in PUT /api/restaurants/[id]:", error);
     if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+      console.error("Zod validation error details:", error);
+      return NextResponse.json(
+        {
+          error: "Datos inválidos",
+          details: error.message,
+        },
+        { status: 400 }
+      );
     }
     return NextResponse.json(
       { error: "Error interno del servidor" },
