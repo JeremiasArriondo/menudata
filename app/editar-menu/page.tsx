@@ -2,6 +2,7 @@
 
 import type React from "react";
 
+import { useAuth } from "@/components/auth-provider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -248,7 +249,7 @@ const menuThemes: MenuTheme[] = [
 ];
 
 export default function EditarMenuPage() {
-  const { data: session } = useSession();
+  const { session } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const restaurantId = searchParams.get("id");
@@ -277,13 +278,13 @@ export default function EditarMenuPage() {
   // Cargar datos del restaurante
   useEffect(() => {
     const loadRestaurant = async () => {
-      if (!restaurantId || !session?.accessToken) return;
+      if (!restaurantId || !session?.access_token) return;
 
       try {
         setLoading(true);
         const response = await fetch(`/api/restaurants/${restaurantId}`, {
           headers: {
-            Authorization: `Bearer ${session.accessToken}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
         });
 
@@ -327,7 +328,7 @@ export default function EditarMenuPage() {
 
   const handleDrop = async (e: React.DragEvent, targetCategoryId: string) => {
     e.preventDefault();
-    if (!draggedItem || !session?.accessToken) return;
+    if (!draggedItem || !session?.access_token) return;
 
     try {
       // Actualizar en la base de datos
@@ -337,7 +338,7 @@ export default function EditarMenuPage() {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.accessToken}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             category_id: targetCategoryId,
@@ -384,7 +385,7 @@ export default function EditarMenuPage() {
   };
 
   const handleSaveItem = async () => {
-    if (!editingItem || !session?.accessToken) return;
+    if (!editingItem || !session?.access_token) return;
 
     try {
       const response = await fetch(
@@ -393,7 +394,7 @@ export default function EditarMenuPage() {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.accessToken}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             name: editingItem.name,
@@ -435,7 +436,7 @@ export default function EditarMenuPage() {
       !newItem.description ||
       !newItem.price ||
       !newItem.category_id ||
-      !session?.accessToken
+      !session?.access_token
     )
       return;
 
@@ -446,7 +447,7 @@ export default function EditarMenuPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.accessToken}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             name: newItem.name,
@@ -493,7 +494,7 @@ export default function EditarMenuPage() {
   };
 
   const handleDeleteItem = async (itemId: string, categoryId: string) => {
-    if (!session?.accessToken) return;
+    if (!session?.access_token) return;
 
     try {
       const response = await fetch(
@@ -501,7 +502,7 @@ export default function EditarMenuPage() {
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${session.accessToken}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
         }
       );
@@ -527,7 +528,7 @@ export default function EditarMenuPage() {
   };
 
   const handleSaveMenu = async () => {
-    if (!restaurant || !session?.accessToken) return;
+    if (!restaurant || !session?.access_token) return;
 
     try {
       setSaving(true);
@@ -537,7 +538,7 @@ export default function EditarMenuPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.accessToken}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           name: restaurant.name,
@@ -732,7 +733,7 @@ export default function EditarMenuPage() {
   );
 
   return (
-    <div className="min-h-screen bg-brand-bg-100">
+    <div className="min-h-screen bg-white dark:bg-black">
       {/* Header */}
       <header className="bg-white dark:bg-brand-text-100 shadow-sm border-b border-brand-bg-300">
         <div className="container mx-auto px-4 py-4">
@@ -978,7 +979,7 @@ export default function EditarMenuPage() {
                               <Switch
                                 checked={item.is_available}
                                 onCheckedChange={async (checked) => {
-                                  if (!session?.accessToken) return;
+                                  if (!session?.access_token) return;
 
                                   try {
                                     const response = await fetch(
@@ -987,7 +988,7 @@ export default function EditarMenuPage() {
                                         method: "PATCH",
                                         headers: {
                                           "Content-Type": "application/json",
-                                          Authorization: `Bearer ${session.accessToken}`,
+                                          Authorization: `Bearer ${session.access_token}`,
                                         },
                                         body: JSON.stringify({
                                           is_available: checked,

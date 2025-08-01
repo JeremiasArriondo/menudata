@@ -627,7 +627,7 @@ export default function CrearMenuPage() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg-100">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-white dark:bg-brand-text-100 shadow-sm border-b border-brand-bg-300">
         <div className="container mx-auto px-4 py-4">
